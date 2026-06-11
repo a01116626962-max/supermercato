@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام إدارة السوبر ماركت</title>
     <link rel="stylesheet" href="style.css">
-
-    </head>
+</head>
 <body>
 
     <header>
@@ -26,7 +25,7 @@
             </div>
 
             <div class="cart-area">
-                <table id="cartTable" border="1">
+                <table id="cartTable">
                     <thead>
                         <tr>
                             <th>اسم المنتج</th>
@@ -37,7 +36,10 @@
                         </tr>
                     </thead>
                     <tbody id="cartBody">
-                        </tbody>
+                        <tr>
+                            <td colspan="5" style="text-align: center;">السلة فارغة</td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
 
@@ -49,6 +51,7 @@
         </div>
     </main>
 
+    <!-- نافذة كلمة المرور -->
     <div id="authModal" style="display: none;">
         <div class="modal-content">
             <h2>دخول المدير</h2>
@@ -59,10 +62,11 @@
         </div>
     </div>
 
+    <!-- لوحة الإدارة -->
     <main id="adminSection" style="display: none;">
         
         <div class="admin-tabs">
-            <button id="tabInventoryBtn">المخزن</button>
+            <button id="tabInventoryBtn" class="active-tab">المخزن</button>
             <button id="tabExpensesBtn">المصروفات</button>
             <button id="tabStatsBtn">الإحصائيات والأرباح</button>
         </div>
@@ -80,7 +84,7 @@
             </form>
 
             <h3>المنتجات المتوفرة (النواقص تظهر باللون الأحمر)</h3>
-            <table id="inventoryTable" border="1">
+            <table id="inventoryTable">
                 <thead>
                     <tr>
                         <th>الباركود</th>
@@ -92,7 +96,10 @@
                     </tr>
                 </thead>
                 <tbody id="inventoryBody">
-                    </tbody>
+                    <tr>
+                        <td colspan="6" style="text-align: center;">جاري التحميل...</td>
+                    </tr>
+                </tbody>
             </table>
         </section>
 
@@ -127,5 +134,5 @@
 
     <script type="module" src="app.js"></script>
 
-    </body>
+</body>
 </html>
