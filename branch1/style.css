@@ -4,13 +4,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 
 :root {
-    --primary-color: #2563eb; /* أزرق احترافي للزراير الأساسية */
+    --primary-color: #2563eb;
     --primary-hover: #1d4ed8;
-    --success-color: #10b981; /* أخضر لتأكيد البيع والأرباح */
-    --danger-color: #ef4444;  /* أحمر للنواقص والحذف */
-    --dark-bg: #1e293b;       /* لون داكن للـ Header */
-    --light-bg: #f8fafc;      /* خلفية الموقع */
-    --card-bg: #ffffff;       /* خلفية الكروت والواجهات */
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+    --dark-bg: #1e293b;
+    --light-bg: #f8fafc;
+    --card-bg: #ffffff;
     --text-main: #334155;
     --text-muted: #64748b;
     --border-color: #e2e8f0;
@@ -95,7 +95,6 @@ main {
     animation: fadeIn 0.4s ease-in-out;
 }
 
-/* حركة ظهور ناعمة للأقسام */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -169,14 +168,31 @@ button:active {
 }
 
 #checkoutBtn:hover {
-    background-color: #059669; /* درجة أغمق للأخضر */
+    background-color: #059669;
+}
+
+/* أزرار التبويبات في الإدارة */
+.admin-tabs {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.admin-tabs button {
+    background-color: #e2e8f0;
+    color: var(--text-main);
+}
+
+.admin-tabs button.active-tab {
+    background-color: var(--primary-color);
+    color: white;
 }
 
 /* ==========================================
    7. الجداول (Tables)
    ========================================== */
 .cart-area, #inventoryTab {
-    overflow-x: auto; /* لسحب الجدول على الموبايل */
+    overflow-x: auto;
 }
 
 table {
@@ -202,7 +218,6 @@ tr:hover td {
     background-color: #f8fafc;
 }
 
-/* كلاس مخصص لتلوين النواقص باللون الأحمر */
 .low-stock {
     background-color: #fef2f2 !important;
     color: var(--danger-color);
@@ -244,13 +259,13 @@ tr:hover td {
 .card:nth-child(3) { border-right-color: var(--success-color); }
 
 /* ==========================================
-   9. النافذة المنبثقة للباسورد (Modal)
+   9. النافذة المنبثقة (Modal)
    ========================================== */
 #authModal {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(15, 23, 42, 0.6); /* خلفية نصف شفافة */
-    backdrop-filter: blur(4px); /* تأثير ضبابي احترافي للخلفية */
+    background-color: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -261,3 +276,26 @@ tr:hover td {
     background: var(--card-bg);
     padding: 30px;
     border-radius: var(--radius);
+    text-align: center;
+    min-width: 350px;
+    box-shadow: var(--shadow-md);
+}
+
+.modal-content h2 {
+    margin-bottom: 15px;
+}
+
+.modal-content button {
+    margin: 10px 5px;
+}
+
+/* منطقة الإجمالي */
+.checkout-area {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.checkout-area h2 {
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+}
