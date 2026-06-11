@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>نظام إدارة السوبر ماركت</title>
+</head>
+<body>
+    <h1>مرحباً بك في نظام الإدارة</h1>
+    <p>جاري الاتصال بقاعدة البيانات...</p>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // ضع الكود الذي نسخته هنا بين الأقواس
+        const firebaseConfig = {
+            // ... (الصق هنا كل البيانات التي ظهرت لك في موقع Firebase)
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        console.log("تم الاتصال بـ Firebase بنجاح!");
+        document.querySelector("p").innerText = "تم الاتصال بـ Firebase بنجاح!";
+    </script>
+</body>
+</html>
