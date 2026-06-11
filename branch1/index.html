@@ -2,48 +2,126 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام إدارة السوبر ماركت</title>
-</head>
+    </head>
 <body>
-    <h1>مرحباً بك في نظام الإدارة</h1>
-    <p>جاري الاتصال بقاعدة البيانات...</p>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    <header>
+        <h1>سوبر ماركت POS</h1>
+        <nav>
+            <button id="navPosBtn" class="active">شاشة البيع</button>
+            <button id="navAdminBtn">لوحة الإدارة (مغلق)</button>
+        </nav>
+    </header>
 
-        // ضع الكود الذي نسخته هنا بين الأقواس
-        const firebaseConfig = {
-        <script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+    <main id="posSection">
+        <div class="pos-container">
+            
+            <div class="barcode-input-area">
+                <label for="barcodeInput">الباركود / بحث سريع:</label>
+                <input type="text" id="barcodeInput" placeholder="مرر الباركود أو اكتب اسم المنتج..." autofocus>
+            </div>
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyB20o1dChYXfgBmw0cro4qkdJK4zdcnhBs",
-    authDomain: "negozio-43e16.firebaseapp.com",
-    databaseURL: "https://negozio-43e16-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "negozio-43e16",
-    storageBucket: "negozio-43e16.firebasestorage.app",
-    messagingSenderId: "948335273399",
-    appId: "1:948335273399:web:ecfc6d288e0a43914ef432",
-    measurementId: "G-2RKC7BJBXZ"
-  };
+            <div class="cart-area">
+                <table id="cartTable" border="1">
+                    <thead>
+                        <tr>
+                            <th>اسم المنتج</th>
+                            <th>سعر الوحدة</th>
+                            <th>الكمية</th>
+                            <th>الإجمالي</th>
+                            <th>إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cartBody">
+                        </tbody>
+                </table>
+            </div>
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-</script>  };
+            <div class="checkout-area">
+                <h2>الإجمالي المطلوب: <span id="cartTotal">0</span> جنيه</h2>
+                <button id="checkoutBtn">تأكيد البيع وحفظ الفاتورة</button>
+            </div>
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        </div>
+    </main>
+
+    <div id="authModal" style="display: none;">
+        <div class="modal-content">
+            <h2>دخول المدير</h2>
+            <p>برجاء إدخال كلمة المرور للوصول للإدارة</p>
+            <input type="password" id="adminPasswordInput" placeholder="كلمة المرور...">
+            <button id="verifyAdminBtn">تأكيد</button>
+            <button id="closeAuthBtn">إلغاء</button>
+        </div>
+    </div>
+
+    <main id="adminSection" style="display: none;">
         
-        console.log("تم الاتصال بـ Firebase بنجاح!");
-        document.querySelector("p").innerText = "تم الاتصال بـ Firebase بنجاح!";
-    </script>
-</body>
+        <div class="admin-tabs">
+            <button id="tabInventoryBtn">المخزن</button>
+            <button id="tabExpensesBtn">المصروفات</button>
+            <button id="tabStatsBtn">الإحصائيات والأرباح</button>
+        </div>
+
+        <section id="inventoryTab">
+            <h3>إضافة منتج جديد للمخزن</h3>
+            <form id="addProductForm">
+                <input type="text" id="prodBarcode" placeholder="الباركود" required>
+                <input type="text" id="prodName" placeholder="اسم المنتج" required>
+                <input type="number" id="prodBuyPrice" placeholder="سعر الشراء" required>
+                <input type="number" id="prodSellPrice" placeholder="سعر البيع" required>
+                <input type="number" id="prodQty" placeholder="الكمية الحالية" required>
+                <input type="number" id="prodMinAlert" placeholder="حد التنبيه (مثال: 5)" required>
+                <button type="submit">إضافة / تحديث المنتج</button>
+            </form>
+
+            <h3>المنتجات المتوفرة (النواقص تظهر باللون الأحمر)</h3>
+            <table id="inventoryTable" border="1">
+                <thead>
+                    <tr>
+                        <th>الباركود</th>
+                        <th>المنتج</th>
+                        <th>الكمية</th>
+                        <th>سعر الشراء</th>
+                        <th>سعر البيع</th>
+                        <th>تعديل/حذف</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryBody">
+                    </tbody>
+            </table>
+        </section>
+
+        <section id="expensesTab" style="display: none;">
+            <h3>تسجيل مصروف يومي</h3>
+            <form id="addExpenseForm">
+                <input type="text" id="expTitle" placeholder="بند المصروف (مثال: كهرباء، أكياس...)" required>
+                <input type="number" id="expAmount" placeholder="المبلغ" required>
+                <button type="submit">تسجيل المصروف</button>
+            </form>
+        </section>
+
+        <section id="statsTab" style="display: none;">
+            <h3>التقرير المالي للإدارة</h3>
+            <div class="stats-cards">
+                <div class="card">
+                    <h4>إجمالي مبيعات الفواتير</h4>
+                    <p id="totalSalesStat">0 جنيه</p>
+                </div>
+                <div class="card">
+                    <h4>إجمالي المصروفات</h4>
+                    <p id="totalExpensesStat">0 جنيه</p>
+                </div>
+                <div class="card">
+                    <h4>صافي الربح</h4>
+                    <p id="netProfitStat">0 جنيه</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    </body>
 </html>
