@@ -1,20 +1,27 @@
 // ==========================================
 // 1. استدعاء مكتبات Firebase
 // ==========================================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-// ⚠️ إعدادات Firebase الخاصة بك
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-    apiKey: "AIzaSyB20o1dChYXfgBmw0cro4qkdJK4zdcnhBs",
-    authDomain: "negozio-43e16.firebaseapp.com",
-    databaseURL: "https://negozio-43e16-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "negozio-43e16",
-    storageBucket: "negozio-43e16.firebasestorage.app",
-    messagingSenderId: "948335273399",
-    appId: "1:948335273399:web:ecfc6d288e0a43914ef432",
-    measurementId: "G-2RKC7BJBXZ"
+  apiKey: "AIzaSyDL5RFFP6WwxA5yGvhl0EF5mG0UKZi5GcA",
+  authDomain: "a01116626962-82e29.firebaseapp.com",
+  projectId: "a01116626962-82e29",
+  storageBucket: "a01116626962-82e29.firebasestorage.app",
+  messagingSenderId: "245357920580",
+  appId: "1:245357920580:web:ef3fdd3d441db66ce31711",
+  measurementId: "G-03K80R8RYM"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
 // تهيئة Firebase
 const app = initializeApp(firebaseConfig);
