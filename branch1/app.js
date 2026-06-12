@@ -1,14 +1,11 @@
 // ==========================================
 // 1. استدعاء مكتبات Firebase
 // ==========================================
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// ⚠️ إعدادات Firebase الخاصة بك
 const firebaseConfig = {
   apiKey: "AIzaSyDL5RFFP6WwxA5yGvhl0EF5mG0UKZi5GcA",
   authDomain: "a01116626962-82e29.firebaseapp.com",
@@ -19,12 +16,9 @@ const firebaseConfig = {
   measurementId: "G-03K80R8RYM"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-
 // تهيئة Firebase
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 const db = getFirestore(app);
 
 // ==========================================
@@ -120,10 +114,10 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
     const newProduct = {
         barcode: document.getElementById('prodBarcode').value,
         name: document.getElementById('prodName').value,
-        buyPrice: parseFloat(document.getElementById('prodBuyPrice').value) || 0,
-        sellPrice: parseFloat(document.getElementById('prodSellPrice').value) || 0,
-        quantity: parseInt(document.getElementById('prodQty').value) || 0,
-        minAlert: parseInt(document.getElementById('prodMinAlert').value) || 0
+        buyPrice: parseFloat(document.getElementById('prodBuyPrice').value),
+        sellPrice: parseFloat(document.getElementById('prodSellPrice').value),
+        quantity: parseInt(document.getElementById('prodQty').value),
+        minAlert: parseInt(document.getElementById('prodMinAlert').value)
     };
 
     try {
@@ -133,7 +127,7 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
         loadInventory();
     } catch (error) {
         console.error("Error adding document: ", error);
-        alert("حدث خطأ أثناء الإضافة: " + error.message);
+        alert("حدث خطأ أثناء الإضافة.");
     } finally {
         btn.innerText = "إضافة / تحديث المنتج";
         btn.disabled = false;
@@ -143,7 +137,6 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
 // جلب المنتجات وعرضها في المخزن
 async function loadInventory() {
     const tbody = document.getElementById('inventoryBody');
-    if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="6">جاري التحميل...</td></tr>';
     
     try {
@@ -160,11 +153,11 @@ async function loadInventory() {
 
             tbody.innerHTML += `
                 <tr class="${isLowStock}">
-                    <td>${prod.barcode || ''}</td>
-                    <td>${prod.name || ''}</td>
-                    <td>${prod.quantity || 0}</td>
-                    <td>${prod.buyPrice || 0}</td>
-                    <td>${prod.sellPrice || 0}</td>
+                    <td>${prod.barcode}</td>
+                    <td>${prod.name}</td>
+                    <td>${prod.quantity}</td>
+                    <td>${prod.buyPrice}</td>
+                    <td>${prod.sellPrice}</td>
                     <td><button onclick="alert('ميزة التعديل ستتم إضافتها لاحقاً')">تعديل</button></td>
                 </tr>
             `;
@@ -180,34 +173,31 @@ async function loadInventory() {
 // ==========================================
 
 const barcodeInput = document.getElementById('barcodeInput');
-if (barcodeInput) {
-    barcodeInput.addEventListener('keypress', async (e) => {
-        if (e.key === 'Enter') {
-            const code = barcodeInput.value.trim();
-            if(code === "") return;
+barcodeInput.addEventListener('keypress', async (e) => {
+    if (e.key === 'Enter') {
+        const code = barcodeInput.value.trim();
+        if(code === "") return;
 
-            if (productsList.length === 0) {
-                const querySnapshot = await getDocs(collection(db, "products"));
-                productsList = [];
-                querySnapshot.forEach((doc) => {
-                    let prod = doc.data();
-                    prod.id = doc.id;
-                    productsList.push(prod);
-                });
-            }
-
-            // التعديل هنا لمنع انهيار الكود لو كان اسم المنتج فارغاً في قاعدة البيانات
-            const product = productsList.find(p => p.barcode === code || (p.name && p.name.includes(code)));
-
-            if (product) {
-                addToCart(product);
-                barcodeInput.value = '';
-            } else {
-                alert("المنتج غير موجود!");
-            }
+        if (productsList.length === 0) {
+            const querySnapshot = await getDocs(collection(db, "products"));
+            productsList = [];
+            querySnapshot.forEach((doc) => {
+                let prod = doc.data();
+                prod.id = doc.id;
+                productsList.push(prod);
+            });
         }
-    });
-}
+
+        const product = productsList.find(p => p.barcode === code || p.name.includes(code));
+
+        if (product) {
+            addToCart(product);
+            barcodeInput.value = '';
+        } else {
+            alert("المنتج غير موجود!");
+        }
+    }
+});
 
 // إضافة المنتج للسلة
 function addToCart(product) {
@@ -234,7 +224,6 @@ function addToCart(product) {
 // رسم جدول السلة وحساب الإجمالي
 function renderCart() {
     const tbody = document.getElementById('cartBody');
-    if (!tbody) return;
     tbody.innerHTML = '';
     let total = 0;
 
@@ -248,8 +237,8 @@ function renderCart() {
 
         tbody.innerHTML += `
             <tr>
-                <td>${item.name || ''}</td>
-                <td>${item.sellPrice || 0}</td>
+                <td>${item.name}</td>
+                <td>${item.sellPrice}</td>
                 <td>
                     <button onclick="window.changeQty(${index}, -1)">-</button>
                     <span style="margin: 0 10px;">${item.cartQty}</span>
@@ -261,8 +250,7 @@ function renderCart() {
         `;
     });
 
-    const cartTotalEl = document.getElementById('cartTotal');
-    if (cartTotalEl) cartTotalEl.innerText = total;
+    document.getElementById('cartTotal').innerText = total;
 }
 
 // تغيير الكمية من السلة (دوال عامة للنافذة)
@@ -287,97 +275,92 @@ window.removeFromCart = function(index) {
 // ==========================================
 // 6. تأكيد البيع وإنشاء الفاتورة
 // ==========================================
-const checkoutBtn = document.getElementById('checkoutBtn');
-if (checkoutBtn) {
-    checkoutBtn.addEventListener('click', async () => {
-        if (cart.length === 0) {
-            alert("السلة فارغة!");
-            return;
-        }
+document.getElementById('checkoutBtn').addEventListener('click', async () => {
+    if (cart.length === 0) {
+        alert("السلة فارغة!");
+        return;
+    }
 
-        checkoutBtn.innerText = "جاري حفظ الفاتورة...";
-        checkoutBtn.disabled = true;
+    const btn = document.getElementById('checkoutBtn');
+    btn.innerText = "جاري حفظ الفاتورة...";
+    btn.disabled = true;
 
-        let totalSales = 0;
-        let totalCost = 0;
-        
-        const invoiceItems = cart.map(item => {
-            totalSales += (item.sellPrice * item.cartQty);
-            totalCost += (item.buyPrice * item.cartQty);
-            return {
-                productId: item.id,
-                name: item.name,
-                qty: item.cartQty,
-                price: item.sellPrice
-            };
-        });
-
-        const newInvoice = {
-            timestamp: new Date().toISOString(),
-            items: invoiceItems,
-            totalSales: totalSales,
-            totalCost: totalCost
+    let totalSales = 0;
+    let totalCost = 0;
+    
+    const invoiceItems = cart.map(item => {
+        totalSales += (item.sellPrice * item.cartQty);
+        totalCost += (item.buyPrice * item.cartQty);
+        return {
+            productId: item.id,
+            name: item.name,
+            qty: item.cartQty,
+            price: item.sellPrice
         };
-
-        try {
-            // حفظ الفاتورة
-            await addDoc(collection(db, "invoices"), newInvoice);
-
-            // ⁠خصم الكميات من المخزن
-            for (const item of cart) {
-                const productRef = doc(db, "products", item.id);
-                const newQty = item.quantity - item.cartQty;
-                await updateDoc(productRef, { quantity: newQty });
-            }
-
-            alert("تم البيع وحفظ الفاتورة بنجاح!");
-            cart = [];
-            renderCart();
-            productsList = [];
-            document.getElementById('barcodeInput').focus();
-
-        } catch (error) {
-            console.error("Checkout Error: ", error);
-            alert("حدث خطأ أثناء حفظ الفاتورة: " + error.message);
-        } finally {
-            checkoutBtn.innerText = "تأكيد البيع وحفظ الفاتورة";
-            checkoutBtn.disabled = false;
-        }
     });
-}
+
+    const newInvoice = {
+        timestamp: new Date().toISOString(),
+        items: invoiceItems,
+        totalSales: totalSales,
+        totalCost: totalCost
+    };
+
+    try {
+        // حفظ الفاتورة
+        await addDoc(collection(db, "invoices"), newInvoice);
+
+        // خصم الكميات من المخزن
+        for (const item of cart) {
+            const productRef = doc(db, "products", item.id);
+            const newQty = item.quantity - item.cartQty;
+            await updateDoc(productRef, { quantity: newQty });
+        }
+
+        alert("تم البيع وحفظ الفاتورة بنجاح!");
+        cart = [];
+        renderCart();
+        productsList = [];
+        document.getElementById('barcodeInput').focus();
+
+    } catch (error) {
+        console.error("Checkout Error: ", error);
+        alert("حدث خطأ أثناء حفظ الفاتورة.");
+    } finally {
+        btn.innerText = "تأكيد البيع وحفظ الفاتورة";
+        btn.disabled = false;
+    }
+});
 
 // ==========================================
 // 7. المصروفات والإحصائيات
 // ==========================================
 
 // تسجيل مصروف
-const addExpenseForm = document.getElementById('addExpenseForm');
-if (addExpenseForm) {
-    addExpenseForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = e.target.querySelector('button');
-        btn.innerText = "جاري التسجيل...";
-        btn.disabled = true;
+document.getElementById('addExpenseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.innerText = "جاري التسجيل...";
+    btn.disabled = true;
 
-        const newExpense = {
-            title: document.getElementById('expTitle').value,
-            amount: parseFloat(document.getElementById('expAmount').value) || 0,
-            date: new Date().toISOString()
-        };
+    const newExpense = {
+        title: document.getElementById('expTitle').value,
+        amount: parseFloat(document.getElementById('expAmount').value),
+        date: new Date().toISOString()
+    };
 
-        try {
-            await addDoc(collection(db, "expenses"), newExpense);
-            alert("تم تسجيل المصروف!");
-            addExpenseForm.reset();
-        } catch (error) {
-            console.error(error);
-            alert("حدث خطأ أثناء تسجيل المصروف: " + error.message);
-        } finally {
-            btn.innerText = "تسجيل المصروف";
-            btn.disabled = false;
-        }
-    });
-}
+    try {
+        await addDoc(collection(db, "expenses"), newExpense);
+        alert("تم تسجيل المصروف!");
+        document.getElementById('addExpenseForm').reset();
+    } catch (error) {
+        console.error(error);
+        alert("حدث خطأ أثناء تسجيل المصروف.");
+    } finally {
+        btn.innerText = "تسجيل المصروف";
+        btn.disabled = false;
+    }
+});
 
 // حساب الإحصائيات
 async function loadStats() {
@@ -408,10 +391,8 @@ async function loadStats() {
         document.getElementById('totalExpensesStat').innerText = totalExpenses + " جنيه";
         
         const netProfitEl = document.getElementById('netProfitStat');
-        if (netProfitEl) {
-            netProfitEl.innerText = netProfit + " جنيه";
-            netProfitEl.style.color = netProfit >= 0 ? "var(--success-color)" : "var(--danger-color)";
-        }
+        netProfitEl.innerText = netProfit + " جنيه";
+        netProfitEl.style.color = netProfit >= 0 ? "var(--success-color)" : "var(--danger-color)";
 
     } catch (error) {
         console.error("Error loading stats: ", error);
