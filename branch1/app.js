@@ -194,6 +194,7 @@ barcodeInput.addEventListener('keypress', async (e) => {
             addToCart(product);
             barcodeInput.value = '';
         } else {
+            window.playSound('error'); // 🔊 إضافة صوت الخطأ
             alert("المنتج غير موجود!");
         }
     }
@@ -206,14 +207,18 @@ function addToCart(product) {
     if (existingItem) {
         if(existingItem.cartQty < product.quantity) {
             existingItem.cartQty += 1;
+            window.playSound('success'); // 🔊 إضافة صوت النجاح
         } else {
+            window.playSound('error'); // 🔊 إضافة صوت الخطأ
             alert("الكمية المتاحة في المخزن لا تكفي!");
             return;
         }
     } else {
         if(product.quantity > 0) {
             cart.push({ ...product, cartQty: 1 });
+            window.playSound('success'); // 🔊 إضافة صوت النجاح
         } else {
+            window.playSound('error'); // 🔊 إضافة صوت الخطأ
             alert("المنتج نفذ من المخزن!");
             return;
         }
@@ -262,6 +267,7 @@ window.changeQty = function(index, amount) {
     } else if (newQty <= 0) {
         window.removeFromCart(index);
     } else {
+        window.playSound('error'); // 🔊 إضافة صوت الخطأ
         alert("الكمية المتاحة في المخزن لا تكفي!");
     }
 };
@@ -317,6 +323,7 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
             await updateDoc(productRef, { quantity: newQty });
         }
 
+        window.playSound('success'); // 🔊 صوت نجاح الفاتورة
         alert("تم البيع وحفظ الفاتورة بنجاح!");
         cart = [];
         renderCart();
@@ -325,6 +332,7 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
 
     } catch (error) {
         console.error("Checkout Error: ", error);
+        window.playSound('error'); // 🔊 صوت خطأ
         alert("حدث خطأ أثناء حفظ الفاتورة.");
     } finally {
         btn.innerText = "تأكيد البيع وحفظ الفاتورة";
@@ -401,3 +409,49 @@ async function loadStats() {
 
 // تحميل المخزن عند بداية التشغيل
 loadInventory();
+
+// ==========================================
+// 8. تشغيل القائمة الجانبية (Sidebar)
+// ==========================================
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const menuBtn = document.getElementById('menuBtn');
+const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+
+function openSidebar() {
+    sidebar.classList.add('active');
+    sidebarOverlay.classList.add('active');
+}
+
+function closeSidebar() {
+    sidebar.classList.remove('active');
+    sidebarOverlay.classList.remove('active');
+}
+
+menuBtn.addEventListener('click', openSidebar);
+closeSidebarBtn.addEventListener('click', closeSidebar);
+sidebarOverlay.addEventListener('click', closeSidebar);
+
+// إغلاق القائمة تلقائياً عند اختيار صفحة
+navPosBtn.addEventListener('click', closeSidebar);
+navAdminBtn.addEventListener('click', closeSidebar);
+
+// ==========================================
+// 9. تشغيل المؤثرات الصوتية (Sound Effects)
+// ==========================================
+const successSound = document.getElementById('successSound');
+const errorSound = document.getElementById('errorSound');
+
+window.playSound = function(type) {
+    try {
+        if (type === 'success') {
+            successSound.currentTime = 0;
+            successSound.play();
+        } else if (type === 'error') {
+            errorSound.currentTime = 0;
+            errorSound.play();
+        }
+    } catch (error) {
+        console.log("الصوت لم يعمل، قد يحتاج لتفاعل المستخدم أولاً");
+    }
+};
