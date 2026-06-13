@@ -1,9 +1,10 @@
 // ==========================================
 // 1. استدعاء مكتبات Firebase
 // ==========================================
+// ⚠️ تم إضافة الدوال الجديدة: query, where, limit, writeBatch
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, query, where, limit, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ⚠️ إعدادات Firebase الخاصة بك
 const firebaseConfig = {
@@ -26,6 +27,7 @@ const db = getFirestore(app);
 // ==========================================
 const ADMIN_PASSWORD = "1234";
 let cart = [];
+// تم الإبقاء على المتغير ده للإدارة فقط (المخزن)
 let productsList = [];
 
 // ==========================================
@@ -169,7 +171,7 @@ async function loadInventory() {
 }
 
 // ==========================================
-// 5. شاشة البيع (الكاشير والباركود)
+// 5. شاشة البيع (الكاشير والبحث المباشر)
 // ==========================================
 
 const barcodeInput = document.getElementById('barcodeInput');
@@ -178,24 +180,38 @@ barcodeInput.addEventListener('keypress', async (e) => {
         const code = barcodeInput.value.trim();
         if(code === "") return;
 
-        if (productsList.length === 0) {
-            const querySnapshot = await getDocs(collection(db, "products"));
-            productsList = [];
-            querySnapshot.forEach((doc) => {
-                let prod = doc.data();
-                prod.id = doc.id;
-                productsList.push(prod);
-            });
-        }
+        // ⚠️ التعديل الجديد: بحث مباشر في السيرفر بدل تحميل كل المنتجات
+        try {
+            // البحث برقم الباركود أولاً (قراءة واحدة فقط)
+            const q = query(collection(db, "products"), where("barcode", "==", code), limit(1));
+            const querySnapshot = await getDocs(q);
 
-        const product = productsList.find(p => p.barcode === code || p.name.includes(code));
-
-        if (product) {
-            addToCart(product);
-            barcodeInput.value = '';
-        } else {
-            window.playSound('error'); // 🔊 إضافة صوت الخطأ
-            alert("المنتج غير موجود!");
+            if (!querySnapshot.empty) {
+                const productDoc = querySnapshot.docs[0];
+                let product = productDoc.data();
+                product.id = productDoc.id;
+                addToCart(product);
+                barcodeInput.value = '';
+            } else {
+                // لو مش باركود، نجرب نبحث بالاسم
+                const qName = query(collection(db, "products"), where("name", ">=", code), where("name", "<=", code + '\uf8ff'), limit(1));
+                const nameSnapshot = await getDocs(qName);
+                
+                if (!nameSnapshot.empty) {
+                    const productDoc = nameSnapshot.docs[0];
+                    let product = productDoc.data();
+                    product.id = productDoc.id;
+                    addToCart(product);
+                    barcodeInput.value = '';
+                } else {
+                    window.playSound('error');
+                    alert("المنتج غير موجود!");
+                }
+            }
+        } catch (error) {
+            console.error("Error searching product:", error);
+            window.playSound('error');
+            alert("حدث خطأ في البحث!");
         }
     }
 });
@@ -279,7 +295,7 @@ window.removeFromCart = function(index) {
 };
 
 // ==========================================
-// 6. تأكيد البيع وإنشاء الفاتورة
+// 6. تأكيد البيع وإنشاء الفاتورة (Batch Transactions)
 // ==========================================
 document.getElementById('checkoutBtn').addEventListener('click', async () => {
     if (cart.length === 0) {
@@ -313,27 +329,33 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
     };
 
     try {
-        // حفظ الفاتورة
-        await addDoc(collection(db, "invoices"), newInvoice);
+        // ⚠️ التعديل الجديد: استخدام الـ Batch عشان نضمن إن الفاتورة وخصم الكمية يحصلوا مع بعض
+        const batch = writeBatch(db);
 
-        // خصم الكميات من المخزن
+        // 1. تجهيز إنشاء الفاتورة
+        const invoiceRef = doc(collection(db, "invoices")); 
+        batch.set(invoiceRef, newInvoice);
+
+        // 2. تجهيز خصم الكميات من المخزن
         for (const item of cart) {
             const productRef = doc(db, "products", item.id);
             const newQty = item.quantity - item.cartQty;
-            await updateDoc(productRef, { quantity: newQty });
+            batch.update(productRef, { quantity: newQty });
         }
 
-        window.playSound('success'); // 🔊 صوت نجاح الفاتورة
+        // 3. إرسال كل الطلبات مرة واحدة للسيرفر
+        await batch.commit();
+
+        window.playSound('success'); 
         alert("تم البيع وحفظ الفاتورة بنجاح!");
         cart = [];
         renderCart();
-        productsList = [];
         document.getElementById('barcodeInput').focus();
 
     } catch (error) {
         console.error("Checkout Error: ", error);
-        window.playSound('error'); // 🔊 صوت خطأ
-        alert("حدث خطأ أثناء حفظ الفاتورة.");
+        window.playSound('error'); 
+        alert("حدث خطأ! لم يتم حفظ الفاتورة أو خصم الكميات لضمان صحة البيانات.");
     } finally {
         btn.innerText = "تأكيد البيع وحفظ الفاتورة";
         btn.disabled = false;
@@ -407,8 +429,8 @@ async function loadStats() {
     }
 }
 
-// تحميل المخزن عند بداية التشغيل
-loadInventory();
+// تحميل المخزن عند بداية التشغيل (تم إيقافها هنا لإن الإدارة مقفولة، هتتحمل لما المدير يدخل)
+// loadInventory(); 
 
 // ==========================================
 // 8. تشغيل القائمة الجانبية (Sidebar)
@@ -455,3 +477,60 @@ window.playSound = function(type) {
         console.log("الصوت لم يعمل، قد يحتاج لتفاعل المستخدم أولاً");
     }
 };
+
+// ==========================================
+// 10. تشغيل الكاميرا كقارئ باركود
+// ==========================================
+const startCameraBtn = document.getElementById('startCameraBtn');
+const readerDiv = document.getElementById('reader');
+let html5QrCode;
+let isCameraOpen = false;
+
+startCameraBtn.addEventListener('click', () => {
+    if (isCameraOpen) {
+        // إغلاق الكاميرا
+        html5QrCode.stop().then(() => {
+            readerDiv.style.display = 'none';
+            isCameraOpen = false;
+            startCameraBtn.innerHTML = '📷'; 
+        }).catch(err => console.log("خطأ في إغلاق الكاميرا", err));
+    } else {
+        // فتح الكاميرا
+        readerDiv.style.display = 'block';
+        html5QrCode = new window.Html5Qrcode("reader");
+        
+        html5QrCode.start(
+            { facingMode: "environment" }, // الكاميرا الخلفية
+            {
+                fps: 10, 
+                qrbox: { width: 250, height: 100 } // مقاس مستطيل الباركود
+            },
+            (decodedText) => {
+                // عند قراءة الباركود بنجاح
+                const barcodeInput = document.getElementById('barcodeInput');
+                barcodeInput.value = decodedText;
+                
+                // إغلاق الكاميرا أوتوماتيك بعد القراءة
+                html5QrCode.stop().then(() => {
+                    readerDiv.style.display = 'none';
+                    isCameraOpen = false;
+                    startCameraBtn.innerHTML = '📷';
+                    
+                    // محاكاة الضغط على "Enter" عشان ينفذ دالة البحث الجديدة
+                    const enterEvent = new KeyboardEvent('keypress', { key: 'Enter' });
+                    barcodeInput.dispatchEvent(enterEvent);
+                });
+            },
+            (errorMessage) => {
+                // تجاهل أخطاء القراءة أثناء تحريك الموبايل
+            }
+        ).then(() => {
+            isCameraOpen = true;
+            startCameraBtn.innerHTML = '❌ إغلاق الكاميرا';
+        }).catch((err) => {
+            console.log("خطأ في تشغيل الكاميرا", err);
+            alert("برجاء السماح للمتصفح باستخدام الكاميرا!");
+            readerDiv.style.display = 'none';
+        });
+    }
+});
