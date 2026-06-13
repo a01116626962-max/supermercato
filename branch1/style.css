@@ -423,3 +423,33 @@ tr:hover td {
 #startCameraBtn:hover {
     background-color: var(--text-main);
 }
+
+/* ==========================================
+   12. تحديثات النوافذ المنبثقة (Modals & Shift)
+   ========================================== */
+.modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000; /* أعلى من الـ Sidebar */
+}
+
+.cancel-btn {
+    background-color: #cbd5e1;
+    color: var(--text-main);
+}
+
+.cancel-btn:hover {
+    background-color: #94a3b8;
+}
+
+#shiftInfoDisplay {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-weight: bold;
+}
