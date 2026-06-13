@@ -86,12 +86,15 @@
         </div>
     </div>
 
-    <div id="startShiftModal" class="modal" style="display: flex;"> <div class="modal-content">
+    <div id="startShiftModal" class="modal" style="display: flex;"> 
+        <div class="modal-content">
             <h2>بدء وردية جديدة</h2>
             <p>أدخل بيانات الكاشير والعهدة للبدء</p>
             <input type="text" id="cashierNameInput" placeholder="اسم الكاشير..." required>
+            <input type="password" id="cashierPasswordInput" placeholder="كلمة المرور..." required>
             <input type="number" id="startCashInput" placeholder="العهدة النقدية في الدرج (جنيه)..." required>
             <button id="startShiftBtn" style="width: 100%; margin-top: 10px;">استلام الوردية</button>
+            <button id="openAdminFromShiftBtn" class="cancel-btn" style="width: 100%; margin-top: 10px; background: transparent; color: var(--primary-color); border: 1px solid var(--primary-color);">دخول الإدارة (لإضافة كاشير)</button>
         </div>
     </div>
 
@@ -126,6 +129,7 @@
         <div class="admin-tabs">
             <button id="tabInventoryBtn" class="active-tab">المخزن</button>
             <button id="tabExpensesBtn">المصروفات</button>
+            <button id="tabCashiersBtn">الكاشيرية</button>
             <button id="tabStatsBtn">الإحصائيات والأرباح</button>
         </div>
 
@@ -168,6 +172,30 @@
                 <input type="number" id="expAmount" placeholder="المبلغ" required>
                 <button type="submit">تسجيل المصروف</button>
             </form>
+        </section>
+
+        <section id="cashiersTab" style="display: none;">
+            <h3>إضافة كاشير جديد للنظام</h3>
+            <form id="addCashierForm">
+                <input type="text" id="newCashierName" placeholder="اسم الدخول للكاشير" required>
+                <input type="text" id="newCashierPass" placeholder="كلمة المرور" required>
+                <button type="submit">إنشاء حساب كاشير</button>
+            </form>
+            <h3>حسابات الكاشيرية المسجلة</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>اسم الكاشير</th>
+                        <th>كلمة المرور</th>
+                        <th>إجراء</th>
+                    </tr>
+                </thead>
+                <tbody id="cashiersBody">
+                    <tr>
+                        <td colspan="3" style="text-align: center;">جاري التحميل...</td>
+                    </tr>
+                </tbody>
+            </table>
         </section>
 
         <section id="statsTab" style="display: none;">
