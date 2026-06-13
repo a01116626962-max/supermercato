@@ -20,6 +20,14 @@
         <nav class="sidebar-nav">
             <button id="navPosBtn" class="active">شاشة البيع</button>
             <button id="navAdminBtn">لوحة الإدارة (مغلق)</button>
+            
+            <div id="adminSubMenu" class="admin-sub-menu" style="display: none;">
+                <button id="navInventoryBtn" class="active-sub">المخزن</button>
+                <button id="navExpensesBtn">المصروفات</button>
+                <button id="navCashiersBtn">الكاشيرية</button>
+                <button id="navStatsBtn">الإحصائيات والأرباح</button>
+            </div>
+
             <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
             <button id="navCashDropBtn" style="color: var(--success-color);">تسليم نقدية للمدير</button>
             <button id="navEndShiftBtn" style="color: var(--danger-color);">إنهاء وتقفيل الوردية</button>
@@ -86,7 +94,7 @@
         </div>
     </div>
 
-    <div id="startShiftModal" class="modal" style="display: flex;"> 
+    <div id="startShiftModal" class="modal" style="display: none;"> 
         <div class="modal-content">
             <h2>بدء وردية جديدة</h2>
             <p>أدخل بيانات الكاشير والعهدة للبدء</p>
@@ -125,14 +133,6 @@
     </div>
 
     <main id="adminSection" style="display: none;">
-        
-        <div class="admin-tabs">
-            <button id="tabInventoryBtn" class="active-tab">المخزن</button>
-            <button id="tabExpensesBtn">المصروفات</button>
-            <button id="tabCashiersBtn">الكاشيرية</button>
-            <button id="tabStatsBtn">الإحصائيات والأرباح</button>
-        </div>
-
         <section id="inventoryTab">
             <h3>إضافة منتج جديد للمخزن</h3>
             <form id="addProductForm">
