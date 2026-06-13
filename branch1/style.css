@@ -453,3 +453,30 @@ tr:hover td {
     border-radius: 20px;
     font-weight: bold;
 }
+
+
+/* ==========================================
+   13. القائمة المنسدلة للإدارة في القائمة الجانبية
+   ========================================== */
+.admin-sub-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-right: 20px; /* إزاحة للداخل لتبدو كقائمة فرعية */
+    border-right: 2px solid var(--primary-color);
+    margin-right: 15px;
+    margin-bottom: 15px;
+}
+
+.admin-sub-menu button {
+    background: transparent;
+    color: #94a3b8;
+    padding: 8px 12px;
+    font-size: 1rem;
+    border-radius: 4px;
+}
+
+.admin-sub-menu button:hover, .admin-sub-menu button.active-sub {
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+}
