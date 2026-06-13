@@ -26,8 +26,9 @@ const ADMIN_PASSWORD = "1234";
 let cart = [];
 let productsList = [];
 
-// ⚠️ بيانات الوردية الحالية
+// المتغير اللي شايل بيانات الوردية (الـ id مهم عشان نحدث الداتا في السيرفر)
 let currentShift = {
+    id: null,
     active: false,
     cashierName: "",
     startCash: 0,
@@ -37,14 +38,44 @@ let currentShift = {
 };
 
 // ==========================================
-// 3. التنقل ونظام الحماية (المدير والوردية)
+// 3. استرجاع بيانات الوردية من السيرفر (بديل التخزين المحلي)
+// ==========================================
+const startShiftModal = document.getElementById('startShiftModal');
+
+async function checkActiveShift() {
+    try {
+        // البحث عن أي وردية حالتها نشطة (مفتوحة)
+        const q = query(collection(db, "shifts"), where("status", "==", "active"), limit(1));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+            const shiftDoc = snap.docs[0];
+            currentShift = { id: shiftDoc.id, active: true, ...shiftDoc.data() };
+            
+            startShiftModal.style.display = 'none';
+            document.getElementById('shiftInfoDisplay').innerText = `الكاشير: ${currentShift.cashierName} | العهدة: ${currentShift.startCash} ج`;
+        } else {
+            // لو مفيش وردية نشطة، اطلب منه يفتح وردية
+            startShiftModal.style.display = 'flex';
+        }
+    } catch (error) {
+        console.error("Error checking shift:", error);
+        startShiftModal.style.display = 'flex';
+    }
+}
+
+// استدعاء الدالة فور تشغيل الموقع
+checkActiveShift();
+
+// ==========================================
+// 4. التنقل ونظام الحماية (المدير والوردية)
 // ==========================================
 const navPosBtn = document.getElementById('navPosBtn');
 const navAdminBtn = document.getElementById('navAdminBtn');
 const posSection = document.getElementById('posSection');
 const adminSection = document.getElementById('adminSection');
 const authModal = document.getElementById('authModal');
-const startShiftModal = document.getElementById('startShiftModal');
+const adminSubMenu = document.getElementById('adminSubMenu');
 
 // فتح شاشة البيع
 navPosBtn.addEventListener('click', () => {
@@ -53,38 +84,43 @@ navPosBtn.addEventListener('click', () => {
     navPosBtn.classList.add('active');
     navAdminBtn.classList.remove('active');
     
-    // لو مفيش وردية شغالة، رجع شاشة استلام الوردية
+    // إخفاء القائمة المنسدلة للإدارة وتغيير النص
+    adminSubMenu.style.display = 'none';
+    navAdminBtn.innerText = "لوحة الإدارة (مغلق)";
+    
     if (!currentShift.active) {
         startShiftModal.style.display = 'flex';
     } else {
         document.getElementById('barcodeInput').focus();
     }
+    closeSidebar();
 });
 
 // فتح نافذة الباسورد للمدير
 navAdminBtn.addEventListener('click', () => {
+    if (adminSection.style.display === 'block') {
+        closeSidebar();
+        return;
+    }
     authModal.style.display = 'flex';
     document.getElementById('adminPasswordInput').focus();
+    closeSidebar();
 });
 
-// زر الدخول للإدارة من شاشة الوردية (لو مفيش كاشيرية لسه)
 document.getElementById('openAdminFromShiftBtn').addEventListener('click', () => {
     startShiftModal.style.display = 'none';
     authModal.style.display = 'flex';
     document.getElementById('adminPasswordInput').focus();
 });
 
-// إغلاق نافذة الإدارة
 document.getElementById('closeAuthBtn').addEventListener('click', () => {
     authModal.style.display = 'none';
     document.getElementById('adminPasswordInput').value = '';
-    // لو قفل الإدارة ومفيش وردية، رجعه لشاشة الوردية
     if (!currentShift.active && posSection.style.display !== 'none') {
         startShiftModal.style.display = 'flex';
     }
 });
 
-// التحقق من باسورد المدير
 document.getElementById('verifyAdminBtn').addEventListener('click', verifyPassword);
 document.getElementById('adminPasswordInput').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') verifyPassword();
@@ -96,26 +132,25 @@ function verifyPassword() {
         authModal.style.display = 'none';
         posSection.style.display = 'none';
         adminSection.style.display = 'block';
+        
+        navAdminBtn.innerText = "لوحة الإدارة (مفتوح)";
         navAdminBtn.classList.add('active');
         navPosBtn.classList.remove('active');
+        adminSubMenu.style.display = 'flex'; // إظهار القائمة المنسدلة
+        
         document.getElementById('adminPasswordInput').value = '';
         loadInventory();
+        openSidebar(); 
     } else {
         alert("كلمة المرور غير صحيحة!");
     }
 }
 
-// تبويبات الإدارة
-document.getElementById('tabInventoryBtn').addEventListener('click', () => switchAdminTab('inventoryTab', 'tabInventoryBtn'));
-document.getElementById('tabExpensesBtn').addEventListener('click', () => switchAdminTab('expensesTab', 'tabExpensesBtn'));
-document.getElementById('tabCashiersBtn').addEventListener('click', () => {
-    switchAdminTab('cashiersTab', 'tabCashiersBtn');
-    loadCashiers();
-});
-document.getElementById('tabStatsBtn').addEventListener('click', () => {
-    switchAdminTab('statsTab', 'tabStatsBtn');
-    loadStats();
-});
+// تبويبات الإدارة المنسدلة
+document.getElementById('navInventoryBtn').addEventListener('click', () => { switchAdminTab('inventoryTab', 'navInventoryBtn'); closeSidebar(); });
+document.getElementById('navExpensesBtn').addEventListener('click', () => { switchAdminTab('expensesTab', 'navExpensesBtn'); closeSidebar(); });
+document.getElementById('navCashiersBtn').addEventListener('click', () => { switchAdminTab('cashiersTab', 'navCashiersBtn'); loadCashiers(); closeSidebar(); });
+document.getElementById('navStatsBtn').addEventListener('click', () => { switchAdminTab('statsTab', 'navStatsBtn'); loadStats(); closeSidebar(); });
 
 function switchAdminTab(tabId, btnId) {
     document.getElementById('inventoryTab').style.display = 'none';
@@ -123,20 +158,20 @@ function switchAdminTab(tabId, btnId) {
     document.getElementById('cashiersTab').style.display = 'none';
     document.getElementById('statsTab').style.display = 'none';
     
-    document.getElementById('tabInventoryBtn').classList.remove('active-tab');
-    document.getElementById('tabExpensesBtn').classList.remove('active-tab');
-    document.getElementById('tabCashiersBtn').classList.remove('active-tab');
-    document.getElementById('tabStatsBtn').classList.remove('active-tab');
+    document.getElementById('navInventoryBtn').classList.remove('active-sub');
+    document.getElementById('navExpensesBtn').classList.remove('active-sub');
+    document.getElementById('navCashiersBtn').classList.remove('active-sub');
+    document.getElementById('navStatsBtn').classList.remove('active-sub');
 
     document.getElementById(tabId).style.display = 'block';
-    document.getElementById(btnId).classList.add('active-tab');
+    document.getElementById(btnId).classList.add('active-sub');
 }
 
 // ==========================================
-// 4. إدارة الوردية (بدء - سحب - إنهاء)
+// 5. إدارة الوردية (حفظ وتحديث مباشر في السيرفر)
 // ==========================================
 
-// بدء الوردية (التحقق من الكاشير)
+// بدء الوردية
 document.getElementById('startShiftBtn').addEventListener('click', async () => {
     const name = document.getElementById('cashierNameInput').value.trim();
     const pass = document.getElementById('cashierPasswordInput').value.trim();
@@ -148,11 +183,10 @@ document.getElementById('startShiftBtn').addEventListener('click', async () => {
     }
 
     const btn = document.getElementById('startShiftBtn');
-    btn.innerText = "جاري التحقق...";
+    btn.innerText = "جاري الاتصال بالسيرفر...";
     btn.disabled = true;
 
     try {
-        // التحقق من وجود الكاشير في الداتا بيز
         const q = query(collection(db, "cashiers"), where("name", "==", name), where("password", "==", pass));
         const querySnapshot = await getDocs(q);
 
@@ -160,9 +194,9 @@ document.getElementById('startShiftBtn').addEventListener('click', async () => {
             alert("اسم الكاشير أو كلمة المرور غير صحيحة!");
             window.playSound('error');
         } else {
-            // تسجيل الدخول بنجاح
-            currentShift = {
-                active: true,
+            // إنشاء الوردية في السيرفر وتحديد إنها (نشطة)
+            const shiftData = {
+                status: "active",
                 cashierName: name,
                 startCash: startCash,
                 sales: 0,
@@ -170,13 +204,16 @@ document.getElementById('startShiftBtn').addEventListener('click', async () => {
                 startTime: new Date().toISOString()
             };
             
+            const docRef = await addDoc(collection(db, "shifts"), shiftData);
+            
+            currentShift = { id: docRef.id, active: true, ...shiftData };
+            
             startShiftModal.style.display = 'none';
             document.getElementById('shiftInfoDisplay').innerText = `الكاشير: ${name} | العهدة: ${startCash} ج`;
             window.playSound('success');
             document.getElementById('barcodeInput').focus();
         }
     } catch (error) {
-        console.error("Shift Start Error:", error);
         alert("حدث خطأ في الاتصال بقاعدة البيانات.");
     } finally {
         btn.innerText = "استلام الوردية";
@@ -184,7 +221,7 @@ document.getElementById('startShiftBtn').addEventListener('click', async () => {
     }
 });
 
-// نافذة سحب نقدية للمدير
+// تسليم نقدية للمدير
 const cashDropModal = document.getElementById('cashDropModal');
 document.getElementById('navCashDropBtn').addEventListener('click', () => {
     if (!currentShift.active) return alert("لا توجد وردية مفتوحة!");
@@ -195,8 +232,7 @@ document.getElementById('closeDropBtn').addEventListener('click', () => {
     cashDropModal.style.display = 'none';
 });
 
-// تأكيد السحب بباسورد المدير
-document.getElementById('confirmDropBtn').addEventListener('click', () => {
+document.getElementById('confirmDropBtn').addEventListener('click', async () => {
     const amount = parseFloat(document.getElementById('dropAmountInput').value);
     const pass = document.getElementById('dropAdminPassword').value;
 
@@ -206,12 +242,27 @@ document.getElementById('confirmDropBtn').addEventListener('click', () => {
     }
 
     if (pass === ADMIN_PASSWORD) {
-        currentShift.drops += amount;
-        alert(`تم تسليم مبلغ ${amount} جنيه للمدير بنجاح.`);
-        cashDropModal.style.display = 'none';
-        document.getElementById('dropAmountInput').value = '';
-        document.getElementById('dropAdminPassword').value = '';
-        window.playSound('success');
+        const btn = document.getElementById('confirmDropBtn');
+        btn.innerText = "جاري الحفظ...";
+        btn.disabled = true;
+
+        try {
+            currentShift.drops += amount;
+            // تحديث السحب في السيرفر فوراً
+            await updateDoc(doc(db, "shifts", currentShift.id), { drops: currentShift.drops });
+            
+            alert(`تم تسليم مبلغ ${amount} جنيه للمدير بنجاح.`);
+            cashDropModal.style.display = 'none';
+            document.getElementById('dropAmountInput').value = '';
+            document.getElementById('dropAdminPassword').value = '';
+            window.playSound('success');
+        } catch (error) {
+            alert("حدث خطأ أثناء الحفظ في السيرفر!");
+            currentShift.drops -= amount; // التراجع عن العملية لو فشلت
+        } finally {
+            btn.innerText = "تأكيد السحب";
+            btn.disabled = false;
+        }
     } else {
         alert("كلمة مرور المدير غير صحيحة!");
         window.playSound('error');
@@ -237,35 +288,33 @@ document.getElementById('closeEndShiftBtn').addEventListener('click', () => {
     endShiftModal.style.display = 'none';
 });
 
-// تأكيد التقفيل وحفظ البيانات
 document.getElementById('confirmEndShiftBtn').addEventListener('click', async () => {
     const btn = document.getElementById('confirmEndShiftBtn');
-    btn.innerText = "جاري الحفظ...";
+    btn.innerText = "جاري إغلاق الوردية...";
     btn.disabled = true;
 
     try {
-        const shiftData = {
-            ...currentShift,
-            endTime: new Date().toISOString()
-        };
-        // حفظ بيانات الوردية في السيرفر
-        await addDoc(collection(db, "shifts"), shiftData);
+        // تحديث حالة الوردية في السيرفر لـ "مغلقة"
+        await updateDoc(doc(db, "shifts", currentShift.id), {
+            status: "closed",
+            endTime: new Date().toISOString(),
+            sales: currentShift.sales // للتأكيد فقط
+        });
 
-        // تصفير الوردية للبدء من جديد
-        currentShift = { active: false, cashierName: "", startCash: 0, sales: 0, drops: 0, startTime: null };
+        currentShift = { id: null, active: false, cashierName: "", startCash: 0, sales: 0, drops: 0, startTime: null };
         document.getElementById('shiftInfoDisplay').innerText = '';
         endShiftModal.style.display = 'none';
-        startShiftModal.style.display = 'flex';
         
-        // مسح خانات تسجيل الدخول
+        if (posSection.style.display !== 'none') {
+            startShiftModal.style.display = 'flex';
+        }
+        
         document.getElementById('cashierPasswordInput').value = '';
         document.getElementById('startCashInput').value = '';
-        
         window.playSound('success');
         alert("تم تقفيل الوردية بنجاح.");
     } catch (error) {
-        console.error("End Shift Error:", error);
-        alert("حدث خطأ أثناء حفظ تقرير الوردية!");
+        alert("حدث خطأ أثناء الاتصال بالسيرفر لإغلاق الوردية!");
     } finally {
         btn.innerText = "إنهاء الوردية وبدء وردية جديدة";
         btn.disabled = false;
@@ -273,9 +322,8 @@ document.getElementById('confirmEndShiftBtn').addEventListener('click', async ()
 });
 
 // ==========================================
-// 5. إدارة المخزن والكاشيرية
+// 6. إدارة المخزن والكاشيرية
 // ==========================================
-
 document.getElementById('addProductForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button');
@@ -331,7 +379,6 @@ async function loadInventory() {
     }
 }
 
-// ⚠️ إضافة وعرض الكاشيرية
 document.getElementById('addCashierForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = document.getElementById('newCashierName').value.trim();
@@ -368,7 +415,7 @@ async function loadCashiers() {
 }
 
 // ==========================================
-// 6. شاشة البيع وتأكيد الفاتورة
+// 7. شاشة البيع وتأكيد الفاتورة
 // ==========================================
 
 const barcodeInput = document.getElementById('barcodeInput');
@@ -509,7 +556,7 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
 
     const newInvoice = {
         timestamp: new Date().toISOString(),
-        cashier: currentShift.cashierName, // ⚠️ ربط الفاتورة باسم الكاشير
+        cashier: currentShift.cashierName,
         items: invoiceItems,
         totalSales: totalSales,
         totalCost: totalCost
@@ -517,19 +564,26 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
 
     try {
         const batch = writeBatch(db);
+        
+        // 1. إضافة الفاتورة
         const invoiceRef = doc(collection(db, "invoices")); 
         batch.set(invoiceRef, newInvoice);
 
+        // 2. خصم الكميات من المخزن
         for (const item of cart) {
             const productRef = doc(db, "products", item.id);
             const newQty = item.quantity - item.cartQty;
             batch.update(productRef, { quantity: newQty });
         }
 
+        // 3. تحديث مبيعات الوردية في السيرفر في نفس اللحظة
+        const shiftRef = doc(db, "shifts", currentShift.id);
+        batch.update(shiftRef, { sales: currentShift.sales + totalSales });
+
+        // تنفيذ كل العمليات مرة واحدة (عشان مفيش حاجة تتحفظ والتانية تقع)
         await batch.commit();
 
-        // ⚠️ إضافة مبلغ الفاتورة لمبيعات الوردية الحالية
-        currentShift.sales += totalSales;
+        currentShift.sales += totalSales; // تحديث الرقم في الشاشة
 
         window.playSound('success'); 
         alert("تم البيع وحفظ الفاتورة بنجاح!");
@@ -538,6 +592,7 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
         document.getElementById('barcodeInput').focus();
 
     } catch (error) {
+        console.error(error);
         window.playSound('error'); 
         alert("حدث خطأ! لم يتم حفظ الفاتورة.");
     } finally {
@@ -547,7 +602,7 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
 });
 
 // ==========================================
-// 7. المصروفات والإحصائيات
+// 8. المصروفات والإحصائيات
 // ==========================================
 document.getElementById('addExpenseForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -605,7 +660,7 @@ async function loadStats() {
 }
 
 // ==========================================
-// 8. القائمة الجانبية والكاميرا والصوتيات
+// 9. القائمة الجانبية والكاميرا والصوتيات
 // ==========================================
 const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -618,8 +673,6 @@ function closeSidebar() { sidebar.classList.remove('active'); sidebarOverlay.cla
 menuBtn.addEventListener('click', openSidebar);
 closeSidebarBtn.addEventListener('click', closeSidebar);
 sidebarOverlay.addEventListener('click', closeSidebar);
-navPosBtn.addEventListener('click', closeSidebar);
-navAdminBtn.addEventListener('click', closeSidebar);
 
 const successSound = document.getElementById('successSound');
 const errorSound = document.getElementById('errorSound');
@@ -660,7 +713,7 @@ startCameraBtn.addEventListener('click', () => {
                     barcodeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
                 });
             },
-            () => {} // تجاهل الأخطاء الصامتة
+            () => {} 
         ).then(() => {
             isCameraOpen = true;
             startCameraBtn.innerHTML = '❌ إغلاق الكاميرا';
