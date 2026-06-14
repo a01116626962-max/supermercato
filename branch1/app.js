@@ -684,10 +684,15 @@ window.playSound = function(type) {
     } catch (error) {}
 };
 
+// --- هنا التعديل الجديد للكاميرا المتقدمة ---
 const startCameraBtn = document.getElementById('startCameraBtn');
 const readerDiv = document.getElementById('reader');
 let html5QrCode;
 let isCameraOpen = false;
+
+// متغيرات للتحكم في المسح المتتالي
+let lastScanTime = 0;
+let lastScannedCode = "";
 
 startCameraBtn.addEventListener('click', () => {
     if (isCameraOpen) {
@@ -695,25 +700,57 @@ startCameraBtn.addEventListener('click', () => {
             readerDiv.style.display = 'none';
             isCameraOpen = false;
             startCameraBtn.innerHTML = '📷'; 
+            readerDiv.style.boxShadow = "none"; // إعادة ضبط التأثير البصري
         }).catch(err => console.log("خطأ في إغلاق الكاميرا"));
     } else {
         readerDiv.style.display = 'block';
         html5QrCode = new window.Html5Qrcode("reader");
         
+        // إعدادات الكاميرا المتقدمة (30 فريم)
+        const cameraConfig = {
+            fps: 30, 
+            qrbox: { width: 250, height: 100 }
+        };
+
+        // محاولة إجبار الكاميرا على التركيز التلقائي المستمر
+        const videoConstraints = {
+            facingMode: "environment",
+            advanced: [{ focusMode: "continuous" }]
+        };
+        
         html5QrCode.start(
-            { facingMode: "environment" }, 
-            { fps: 10, qrbox: { width: 250, height: 100 } },
+            videoConstraints, 
+            cameraConfig,
             (decodedText) => {
-                const barcodeInput = document.getElementById('barcodeInput');
-                barcodeInput.value = decodedText;
-                html5QrCode.stop().then(() => {
-                    readerDiv.style.display = 'none';
-                    isCameraOpen = false;
-                    startCameraBtn.innerHTML = '📷';
+                const currentTime = new Date().getTime();
+                
+                // نظام التبريد لمنع التكرار (ثانية ونصف لنفس المنتج)
+                if (currentTime - lastScanTime > 1500 || decodedText !== lastScannedCode) {
+                    lastScanTime = currentTime;
+                    lastScannedCode = decodedText;
+                    
+                    const barcodeInput = document.getElementById('barcodeInput');
+                    barcodeInput.value = decodedText;
+                    
+                    // التأكيد الصوتي
+                    window.playSound('success');
+                    
+                    // التأكيد المرئي (وميض أخضر حول الكاميرا)
+                    readerDiv.style.transition = "box-shadow 0.2s ease";
+                    readerDiv.style.boxShadow = "0px 0px 20px 5px var(--success-color)";
+                    
+                    // إخفاء الوميض بعد نصف ثانية
+                    setTimeout(() => {
+                        readerDiv.style.boxShadow = "none";
+                    }, 500);
+
+                    // محاكاة الضغط على Enter للبحث وإضافته للسلة فوراً
                     barcodeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
-                });
+                }
             },
-            () => {} 
+            (errorMessage) => {
+                // يتم تجاهل أخطاء الفريمات الفارغة هنا
+            } 
         ).then(() => {
             isCameraOpen = true;
             startCameraBtn.innerHTML = '❌ إغلاق الكاميرا';
