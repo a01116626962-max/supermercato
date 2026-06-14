@@ -136,7 +136,13 @@
         <section id="inventoryTab">
             <h3>إضافة منتج جديد للمخزن</h3>
             <form id="addProductForm">
-                <input type="text" id="prodBarcode" placeholder="الباركود" required>
+                <div style="display: flex; gap: 10px; grid-column: 1 / -1;">
+    <input type="text" id="prodBarcode" placeholder="الباركود" required style="margin-bottom: 0;">
+    <button type="button" id="startProdCameraBtn" title="تشغيل الكاميرا" style="padding: 10px 15px; font-size: 1.2rem; background-color: var(--text-muted);">📷</button>
+</div>
+
+<div id="prodReader" style="display: none; width: 100%; max-width: 400px; margin: 0 auto 15px auto; border-radius: 8px; overflow: hidden; grid-column: 1 / -1;"></div>
+
                 <input type="text" id="prodName" placeholder="اسم المنتج" required>
                 <input type="number" id="prodBuyPrice" placeholder="سعر الشراء" required>
                 <input type="number" id="prodSellPrice" placeholder="سعر البيع" required>
