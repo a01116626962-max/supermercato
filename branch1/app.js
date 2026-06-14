@@ -718,35 +718,45 @@ startCameraBtn.addEventListener('click', () => {
         html5QrCode.start(
             videoConstraints, 
             cameraConfig,
-            (decodedText) => {
+                        (decodedText) => {
                 const currentTime = new Date().getTime();
                 
-              
-                                // منع التكرار: لو نفس المنتج، لازم يفوت 4 ثواني كاملة عشان يضيفه تاني. لو منتج مختلف يضيفه فوراً.
-                if ((decodedText === lastScannedCode && currentTime - lastScanTime > 4000) || decodedText !== lastScannedCode) {
-                    lastScanTime = currentTime;
-
-                    lastScannedCode = decodedText;
-                    
-                    const barcodeInput = document.getElementById('barcodeInput');
-                    barcodeInput.value = decodedText;
-                    
-                    // التأكيد الصوتي
-                    window.playSound('success');
-                    
-                    // التأكيد المرئي (وميض أخضر حول الكاميرا)
-                    readerDiv.style.transition = "box-shadow 0.2s ease";
-                    readerDiv.style.boxShadow = "0px 0px 20px 5px var(--success-color)";
-                    
-                    // إخفاء الوميض بعد نصف ثانية
-                    setTimeout(() => {
-                        readerDiv.style.boxShadow = "none";
-                    }, 500);
-
-                    // محاكاة الضغط على Enter للبحث وإضافته للسلة فوراً
-                    barcodeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
+                // 1. لو نفس المنتج ولسه معداش 4 ثواني، وقف الكود هنا تماماً (حائط الصد لمنع التكرار)
+                if (decodedText === lastScannedCode && (currentTime - lastScanTime) < 4000) {
+                    return; 
                 }
+
+                // 2. لو منتج جديد أو عدى 4 ثواني، كمل عادي وسجل البيانات
+                lastScanTime = currentTime;
+                lastScannedCode = decodedText;
+                
+                const barcodeInput = document.getElementById('barcodeInput');
+                barcodeInput.value = decodedText;
+                
+                // التأكيد الصوتي
+                window.playSound('success');
+                
+                // التأكيد المرئي (وميض أخضر حول الكاميرا)
+                readerDiv.style.transition = "box-shadow 0.2s ease";
+                readerDiv.style.boxShadow = "0px 0px 20px 5px var(--success-color)";
+                
+                // إخفاء الوميض بعد نصف ثانية
+                setTimeout(() => {
+                    readerDiv.style.boxShadow = "none";
+                }, 500);
+
+                // محاكاة الضغط على Enter للبحث وإضافته للسلة فوراً
+                barcodeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
+
+                // 3. تأمين أخير عشان لو الدالة صفرت الخانة، الكاميرا متتخدعش وتقراه من تاني
+                setTimeout(() => {
+                    if (barcodeInput.value === "") {
+                        // لا تفعل شيء، فقط حافظ على الذاكرة
+                    }
+                }, 50);
             },
+
+      
             (errorMessage) => {
                 // يتم تجاهل أخطاء الفريمات الفارغة هنا
             } 
