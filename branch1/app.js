@@ -712,11 +712,8 @@ startCameraBtn.addEventListener('click', () => {
             qrbox: { width: 250, height: 100 }
         };
 
-        // محاولة إجبار الكاميرا على التركيز التلقائي المستمر
-        const videoConstraints = {
-            facingMode: "environment",
-            advanced: [{ focusMode: "continuous" }]
-        };
+              const videoConstraints = { facingMode: "environment" };
+
         
         html5QrCode.start(
             videoConstraints, 
