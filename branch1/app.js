@@ -721,9 +721,11 @@ startCameraBtn.addEventListener('click', () => {
             (decodedText) => {
                 const currentTime = new Date().getTime();
                 
-                // نظام التبريد لمنع التكرار (ثانية ونصف لنفس المنتج)
-                if (currentTime - lastScanTime > 1500 || decodedText !== lastScannedCode) {
+              
+                                // منع التكرار: لو نفس المنتج، لازم يفوت 4 ثواني كاملة عشان يضيفه تاني. لو منتج مختلف يضيفه فوراً.
+                if ((decodedText === lastScannedCode && currentTime - lastScanTime > 4000) || decodedText !== lastScannedCode) {
                     lastScanTime = currentTime;
+
                     lastScannedCode = decodedText;
                     
                     const barcodeInput = document.getElementById('barcodeInput');
