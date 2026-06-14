@@ -769,3 +769,62 @@ startCameraBtn.addEventListener('click', () => {
         });
     }
 });
+
+// ==========================================
+// 10. كاميرا إضافة المنتجات للمخزن
+// ==========================================
+const startProdCameraBtn = document.getElementById('startProdCameraBtn');
+const prodReaderDiv = document.getElementById('prodReader');
+const prodBarcode = document.getElementById('prodBarcode');
+
+let prodHtml5QrCode;
+let isProdCameraOpen = false;
+
+startProdCameraBtn.addEventListener('click', () => {
+    if (isProdCameraOpen) {
+        // إغلاق الكاميرا يدوياً
+        prodHtml5QrCode.stop().then(() => {
+            prodReaderDiv.style.display = 'none';
+            isProdCameraOpen = false;
+            startProdCameraBtn.innerHTML = '📷'; 
+        }).catch(err => console.log("خطأ في إغلاق الكاميرا"));
+    } else {
+        // فتح الكاميرا
+        prodReaderDiv.style.display = 'block';
+        prodHtml5QrCode = new window.Html5Qrcode("prodReader");
+        
+        const cameraConfig = {
+            fps: 30, 
+            qrbox: { width: 250, height: 100 }
+        };
+
+        prodHtml5QrCode.start(
+            { facingMode: "environment" }, 
+            cameraConfig,
+            (decodedText) => {
+                // عند نجاح القراءة
+                prodBarcode.value = decodedText; // وضع الكود في الخانة
+                window.playSound('success'); // تشغيل صوت النجاح
+                
+                // إغلاق الكاميرا تلقائياً بعد القراءة لتوفير الوقت
+                prodHtml5QrCode.stop().then(() => {
+                    prodReaderDiv.style.display = 'none';
+                    isProdCameraOpen = false;
+                    startProdCameraBtn.innerHTML = '📷';
+                    
+                    // نقل مؤشر الماوس تلقائياً لخانة "اسم المنتج" لتكملة البيانات بسرعة
+                    document.getElementById('prodName').focus();
+                });
+            },
+            (errorMessage) => {
+                // تجاهل أخطاء البحث المستمر
+            } 
+        ).then(() => {
+            isProdCameraOpen = true;
+            startProdCameraBtn.innerHTML = '❌'; // تغيير شكل الزر
+        }).catch(() => {
+            alert("برجاء السماح للمتصفح باستخدام الكاميرا!");
+            prodReaderDiv.style.display = 'none';
+        });
+    }
+});
