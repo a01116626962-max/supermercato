@@ -8,6 +8,7 @@
     --primary-hover: #1d4ed8;
     --success-color: #10b981;
     --danger-color: #ef4444;
+    --warning-color: #f59e0b;
     --dark-bg: #1e293b;
     --light-bg: #f8fafc;
     --card-bg: #ffffff;
@@ -119,6 +120,14 @@ input:focus {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
+/* تنسيق الحقول المعطلة */
+input:disabled {
+    background-color: #e2e8f0;
+    color: var(--text-muted);
+    cursor: not-allowed;
+    border-color: var(--border-color);
+}
+
 .barcode-input-area label {
     display: block;
     margin-bottom: 8px;
@@ -149,14 +158,20 @@ button {
     display: inline-block;
 }
 
-button:hover {
+button:hover:not(:disabled) {
     background-color: var(--primary-hover);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
 
-button:active {
+button:active:not(:disabled) {
     transform: translateY(0);
+}
+
+button:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 #checkoutBtn {
@@ -169,6 +184,10 @@ button:active {
 
 #checkoutBtn:hover {
     background-color: #059669;
+}
+
+#openCashierExpenseBtn:hover {
+    background-color: #d97706 !important;
 }
 
 /* أزرار التبويبات في الإدارة */
@@ -261,15 +280,15 @@ tr:hover td {
 /* ==========================================
    9. النافذة المنبثقة (Modal)
    ========================================== */
-#authModal {
+.modal {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(15, 23, 42, 0.6);
+    background-color: rgba(15, 23, 42, 0.75);
     backdrop-filter: blur(4px);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000;
+    z-index: 2000;
 }
 
 .modal-content {
@@ -289,15 +308,13 @@ tr:hover td {
     margin: 10px 5px;
 }
 
-/* منطقة الإجمالي */
-.checkout-area {
-    margin-top: 20px;
-    text-align: center;
+.cancel-btn {
+    background-color: #cbd5e1;
+    color: var(--text-main);
 }
 
-.checkout-area h2 {
-    margin-bottom: 15px;
-    font-size: 1.5rem;
+.cancel-btn:hover {
+    background-color: #94a3b8;
 }
 
 /* ==========================================
@@ -330,7 +347,7 @@ tr:hover td {
 
 .sidebar {
     position: fixed;
-    top: 0; right: -280px; /* مخفية برا الشاشة */
+    top: 0; right: -280px; 
     width: 280px;
     height: 100vh;
     background: var(--dark-bg);
@@ -343,7 +360,7 @@ tr:hover td {
 }
 
 .sidebar.active {
-    right: 0; /* تظهر على الشاشة */
+    right: 0; 
 }
 
 .sidebar-header {
@@ -404,7 +421,7 @@ tr:hover td {
     bottom: 0;
     background: var(--card-bg);
     padding: 15px 20px;
-    margin: 20px -25px -25px -25px; /* عشان تمدد بعرض الكونتينر */
+    margin: 20px -25px -25px -25px; 
     border-top: 1px solid var(--border-color);
     box-shadow: 0 -10px 15px -3px rgba(0,0,0,0.05);
     z-index: 100;
@@ -413,38 +430,20 @@ tr:hover td {
     border-bottom-right-radius: var(--radius);
 }
 
-#startCameraBtn {
+.checkout-area h2 {
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+}
+
+#startCameraBtn, #startProdCameraBtn {
     background-color: var(--text-muted);
     color: white;
     border-radius: var(--radius);
     transition: var(--transition);
 }
 
-#startCameraBtn:hover {
+#startCameraBtn:hover, #startProdCameraBtn:hover {
     background-color: var(--text-main);
-}
-
-/* ==========================================
-   12. تحديثات النوافذ المنبثقة (Modals & Shift)
-   ========================================== */
-.modal {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(15, 23, 42, 0.75);
-    backdrop-filter: blur(4px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 2000; /* أعلى من الـ Sidebar */
-}
-
-.cancel-btn {
-    background-color: #cbd5e1;
-    color: var(--text-main);
-}
-
-.cancel-btn:hover {
-    background-color: #94a3b8;
 }
 
 #shiftInfoDisplay {
@@ -454,15 +453,14 @@ tr:hover td {
     font-weight: bold;
 }
 
-
 /* ==========================================
-   13. القائمة المنسدلة للإدارة في القائمة الجانبية
+   12. القائمة المنسدلة للإدارة في القائمة الجانبية
    ========================================== */
 .admin-sub-menu {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    padding-right: 20px; /* إزاحة للداخل لتبدو كقائمة فرعية */
+    padding-right: 20px; 
     border-right: 2px solid var(--primary-color);
     margin-right: 15px;
     margin-bottom: 15px;
@@ -479,4 +477,64 @@ tr:hover td {
 .admin-sub-menu button:hover, .admin-sub-menu button.active-sub {
     color: white;
     background: rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================
+   14. القائمة السريعة وتزويد البضاعة (الجديد)
+   ========================================== */
+.quick-item-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+    width: 100%;
+}
+
+.quick-item-btn:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    background-color: #f0fdf4; /* إضاءة خفيفة عند التحويم */
+}
+
+.quick-item-btn img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.quick-item-btn span {
+    font-size: 0.85rem;
+    text-align: center;
+    color: var(--text-main);
+    font-weight: 700;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+#restockProductInfo {
+    border-right: 4px solid var(--primary-color);
+    padding: 15px;
+    background: #f1f5f9;
+    border-radius: var(--radius);
+}
+
+#restockProductInfo h4 {
+    color: var(--text-main);
+    margin-bottom: 5px;
+}
+
+#restockProductInfo p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
 }
