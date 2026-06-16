@@ -3,8 +3,7 @@
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-// تم إضافة getDoc, increment, setDoc للإحصائيات السريعة
-import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc, setDoc, increment, query, where, limit, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, query, where, limit, writeBatch, increment, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDL5RFFP6WwxA5yGvhl0EF5mG0UKZi5GcA",
@@ -27,68 +26,63 @@ const ADMIN_PASSWORD = "1234";
 let cart = [];
 let productsList = [];
 
-// دالة لتوحيد الحروف العربية للبحث المرن (ميزة جديدة)
-function normalizeArabic(text) {
-    return text.replace(/[أإآ]/g, 'ا')
-               .replace(/ة/g, 'ه')
-               .replace(/ى/g, 'ي')
-               .trim();
-}
-
-// المتغير اللي شايل بيانات الوردية (تم إضافة cashierExpenses)
+// ⚠️ بيانات الوردية الحالية
 let currentShift = {
-    id: null,
     active: false,
     cashierName: "",
     startCash: 0,
     sales: 0,
     drops: 0,
-    cashierExpenses: 0,
+    cashierExpenses: 0, // إضافة المصروفات النثرية
     startTime: null
 };
 
-// ==========================================
-// 3. استرجاع بيانات الوردية من السيرفر
-// ==========================================
-const startShiftModal = document.getElementById('startShiftModal');
+// إعدادات Debounce للباركود
+const barcodeDebounceTimers = {};
 
-async function checkActiveShift() {
-    try {
-        const q = query(collection(db, "shifts"), where("status", "==", "active"), limit(1));
-        const snap = await getDocs(q);
-        
-        if (!snap.empty) {
-            const shiftDoc = snap.docs[0];
-            currentShift = { id: shiftDoc.id, active: true, ...shiftDoc.data() };
-            
-            // التأكد من وجود قيمة لمصروفات الكاشير للورديات القديمة
-            if(currentShift.cashierExpenses === undefined) currentShift.cashierExpenses = 0;
-            
-            startShiftModal.style.display = 'none';
-            document.getElementById('shiftInfoDisplay').innerText = `الكاشير: ${currentShift.cashierName} | العهدة: ${currentShift.startCash} ج`;
-            
-            loadQuickItemsPos(); // تحميل القائمة السريعة
-        } else {
-            startShiftModal.style.display = 'flex';
-        }
-    } catch (error) {
-        console.error("Error checking shift:", error);
-        startShiftModal.style.display = 'flex';
-    }
+// ==========================================
+// 3. دوال مساعدة (Utility Functions)
+// ==========================================
+
+// توحيد النص العربي للبحث المرن
+function normalizeText(text) {
+    if (!text) return "";
+    return text
+        .replace(/[أإآ]/g, 'ا')
+        .replace(/ة/g, 'ه')
+        .replace(/ى/g, 'ي')
+        .replace(/[^\u0621-\u063A\u0641-\u064Aa-zA-Z0-9\s]/g, '')
+        .trim()
+        .toLowerCase();
 }
 
-// استدعاء الدالة فور تشغيل الموقع
-checkActiveShift();
+// إنشاء مفتاح بحث آمن للمنتج
+function createSearchKey(name) {
+    return normalizeText(name);
+}
 
 // ==========================================
 // 4. التنقل ونظام الحماية (المدير والوردية)
 // ==========================================
+
 const navPosBtn = document.getElementById('navPosBtn');
 const navAdminBtn = document.getElementById('navAdminBtn');
 const posSection = document.getElementById('posSection');
 const adminSection = document.getElementById('adminSection');
 const authModal = document.getElementById('authModal');
-const adminSubMenu = document.getElementById('adminSubMenu');
+const startShiftModal = document.getElementById('startShiftModal');
+
+// إظهار أقسام الإدارة
+const allAdminTabs = [
+    'inventoryTab', 'expensesTab', 'cashiersTab', 'statsTab', 'restockTab', 'quickItemsAdminTab'
+];
+
+function hideAllAdminTabs() {
+    allAdminTabs.forEach(tabId => {
+        const tab = document.getElementById(tabId);
+        if (tab) tab.style.display = 'none';
+    });
+}
 
 // فتح شاشة البيع
 navPosBtn.addEventListener('click', () => {
@@ -97,34 +91,30 @@ navPosBtn.addEventListener('click', () => {
     navPosBtn.classList.add('active');
     navAdminBtn.classList.remove('active');
     
-    adminSubMenu.style.display = 'none';
-    navAdminBtn.innerText = "لوحة الإدارة (مغلق)";
-    
     if (!currentShift.active) {
         startShiftModal.style.display = 'flex';
     } else {
         document.getElementById('barcodeInput').focus();
+        loadQuickItems();
     }
     closeSidebar();
 });
 
 // فتح نافذة الباسورد للمدير
 navAdminBtn.addEventListener('click', () => {
-    if (adminSection.style.display === 'block') {
-        closeSidebar();
-        return;
-    }
     authModal.style.display = 'flex';
     document.getElementById('adminPasswordInput').focus();
     closeSidebar();
 });
 
+// زر الدخول للإدارة من شاشة الوردية
 document.getElementById('openAdminFromShiftBtn').addEventListener('click', () => {
     startShiftModal.style.display = 'none';
     authModal.style.display = 'flex';
     document.getElementById('adminPasswordInput').focus();
 });
 
+// إغلاق نافذة الإدارة
 document.getElementById('closeAuthBtn').addEventListener('click', () => {
     authModal.style.display = 'none';
     document.getElementById('adminPasswordInput').value = '';
@@ -133,6 +123,7 @@ document.getElementById('closeAuthBtn').addEventListener('click', () => {
     }
 });
 
+// التحقق من باسورد المدير
 document.getElementById('verifyAdminBtn').addEventListener('click', verifyPassword);
 document.getElementById('adminPasswordInput').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') verifyPassword();
@@ -144,51 +135,90 @@ function verifyPassword() {
         authModal.style.display = 'none';
         posSection.style.display = 'none';
         adminSection.style.display = 'block';
-        
-        navAdminBtn.innerText = "لوحة الإدارة (مفتوح)";
         navAdminBtn.classList.add('active');
         navPosBtn.classList.remove('active');
-        adminSubMenu.style.display = 'flex'; 
-        
         document.getElementById('adminPasswordInput').value = '';
+        hideAllAdminTabs();
+        document.getElementById('inventoryTab').style.display = 'block';
         loadInventory();
-        openSidebar(); 
     } else {
         alert("كلمة المرور غير صحيحة!");
     }
 }
 
-// تبويبات الإدارة المنسدلة (تمت إضافة التبويبات الجديدة)
-document.getElementById('navInventoryBtn').addEventListener('click', () => { switchAdminTab('inventoryTab', 'navInventoryBtn'); closeSidebar(); });
-document.getElementById('navRestockBtn').addEventListener('click', () => { switchAdminTab('restockTab', 'navRestockBtn'); closeSidebar(); });
-document.getElementById('navQuickItemsBtn').addEventListener('click', () => { switchAdminTab('quickItemsTab', 'navQuickItemsBtn'); loadQuickItemsAdmin(); closeSidebar(); });
-document.getElementById('navExpensesBtn').addEventListener('click', () => { switchAdminTab('expensesTab', 'navExpensesBtn'); closeSidebar(); });
-document.getElementById('navCashiersBtn').addEventListener('click', () => { switchAdminTab('cashiersTab', 'navCashiersBtn'); loadCashiers(); closeSidebar(); });
-document.getElementById('navStatsBtn').addEventListener('click', () => { switchAdminTab('statsTab', 'navStatsBtn'); loadStats(); closeSidebar(); });
-
-function switchAdminTab(tabId, btnId) {
-    document.getElementById('inventoryTab').style.display = 'none';
-    document.getElementById('restockTab').style.display = 'none';
-    document.getElementById('quickItemsTab').style.display = 'none';
-    document.getElementById('expensesTab').style.display = 'none';
-    document.getElementById('cashiersTab').style.display = 'none';
-    document.getElementById('statsTab').style.display = 'none';
+// تبويبات الإدارة
+function switchAdminTab(tabId) {
+    hideAllAdminTabs();
+    const tab = document.getElementById(tabId);
+    if (tab) tab.style.display = 'block';
     
-    document.getElementById('navInventoryBtn').classList.remove('active-sub');
-    document.getElementById('navRestockBtn').classList.remove('active-sub');
-    document.getElementById('navQuickItemsBtn').classList.remove('active-sub');
-    document.getElementById('navExpensesBtn').classList.remove('active-sub');
-    document.getElementById('navCashiersBtn').classList.remove('active-sub');
-    document.getElementById('navStatsBtn').classList.remove('active-sub');
+    if (tabId === 'inventoryTab') loadInventory();
+    else if (tabId === 'cashiersTab') loadCashiers();
+    else if (tabId === 'statsTab') loadStats();
+    else if (tabId === 'quickItemsAdminTab') loadQuickItemsAdmin();
+    else if (tabId === 'restockTab') {
+        document.getElementById('restockForm').reset();
+        document.getElementById('restockProdName').value = '';
+    }
+}
 
-    document.getElementById(tabId).style.display = 'block';
-    document.getElementById(btnId).classList.add('active-sub');
+// ربط أزرار القائمة الجانبية
+document.getElementById('navInventoryBtn').addEventListener('click', () => {
+    if (!checkAdminAccess()) return;
+    switchAdminTab('inventoryTab');
+    closeSidebar();
+});
+
+document.getElementById('navExpensesBtn').addEventListener('click', () => {
+    if (!checkAdminAccess()) return;
+    switchAdminTab('expensesTab');
+    closeSidebar();
+});
+
+document.getElementById('navCashiersBtn').addEventListener('click', () => {
+    if (!checkAdminAccess()) return;
+    switchAdminTab('cashiersTab');
+    closeSidebar();
+});
+
+document.getElementById('navStatsBtn').addEventListener('click', () => {
+    if (!checkAdminAccess()) return;
+    switchAdminTab('statsTab');
+    closeSidebar();
+});
+
+document.getElementById('navRestockBtn').addEventListener('click', () => {
+    if (!checkAdminAccess()) return;
+    switchAdminTab('restockTab');
+    closeSidebar();
+});
+
+document.getElementById('navQuickItemsAdminBtn').addEventListener('click', () => {
+    if (!checkAdminAccess()) return;
+    switchAdminTab('quickItemsAdminTab');
+    closeSidebar();
+});
+
+document.getElementById('navCashierExpBtn').addEventListener('click', () => {
+    if (!currentShift.active) return alert("لا توجد وردية مفتوحة!");
+    document.getElementById('cashierExpenseModal').style.display = 'flex';
+    closeSidebar();
+});
+
+function checkAdminAccess() {
+    if (adminSection.style.display === 'none' || adminSection.style.display === '') {
+        authModal.style.display = 'flex';
+        document.getElementById('adminPasswordInput').focus();
+        return false;
+    }
+    return true;
 }
 
 // ==========================================
-// 5. إدارة الوردية ومصروفات الكاشير
+// 5. إدارة الوردية (بدء - سحب - مصروفات - إنهاء)
 // ==========================================
 
+// بدء الوردية
 document.getElementById('startShiftBtn').addEventListener('click', async () => {
     const name = document.getElementById('cashierNameInput').value.trim();
     const pass = document.getElementById('cashierPasswordInput').value.trim();
@@ -200,7 +230,7 @@ document.getElementById('startShiftBtn').addEventListener('click', async () => {
     }
 
     const btn = document.getElementById('startShiftBtn');
-    btn.innerText = "جاري الاتصال بالسيرفر...";
+    btn.innerText = "جاري التحقق...";
     btn.disabled = true;
 
     try {
@@ -211,8 +241,8 @@ document.getElementById('startShiftBtn').addEventListener('click', async () => {
             alert("اسم الكاشير أو كلمة المرور غير صحيحة!");
             window.playSound('error');
         } else {
-            const shiftData = {
-                status: "active",
+            currentShift = {
+                active: true,
                 cashierName: name,
                 startCash: startCash,
                 sales: 0,
@@ -221,17 +251,14 @@ document.getElementById('startShiftBtn').addEventListener('click', async () => {
                 startTime: new Date().toISOString()
             };
             
-            const docRef = await addDoc(collection(db, "shifts"), shiftData);
-            
-            currentShift = { id: docRef.id, active: true, ...shiftData };
-            
             startShiftModal.style.display = 'none';
             document.getElementById('shiftInfoDisplay').innerText = `الكاشير: ${name} | العهدة: ${startCash} ج`;
             window.playSound('success');
-            loadQuickItemsPos();
             document.getElementById('barcodeInput').focus();
+            loadQuickItems();
         }
     } catch (error) {
+        console.error("Shift Start Error:", error);
         alert("حدث خطأ في الاتصال بقاعدة البيانات.");
     } finally {
         btn.innerText = "استلام الوردية";
@@ -239,7 +266,7 @@ document.getElementById('startShiftBtn').addEventListener('click', async () => {
     }
 });
 
-// تسليم نقدية للمدير
+// نافذة سحب نقدية للمدير
 const cashDropModal = document.getElementById('cashDropModal');
 document.getElementById('navCashDropBtn').addEventListener('click', () => {
     if (!currentShift.active) return alert("لا توجد وردية مفتوحة!");
@@ -250,7 +277,8 @@ document.getElementById('closeDropBtn').addEventListener('click', () => {
     cashDropModal.style.display = 'none';
 });
 
-document.getElementById('confirmDropBtn').addEventListener('click', async () => {
+// تأكيد السحب مع منع الرصيد بالسالب
+document.getElementById('confirmDropBtn').addEventListener('click', () => {
     const amount = parseFloat(document.getElementById('dropAmountInput').value);
     const pass = document.getElementById('dropAdminPassword').value;
 
@@ -259,73 +287,58 @@ document.getElementById('confirmDropBtn').addEventListener('click', async () => 
         return;
     }
 
-    if (pass === ADMIN_PASSWORD) {
-        const btn = document.getElementById('confirmDropBtn');
-        btn.innerText = "جاري الحفظ...";
-        btn.disabled = true;
+    const availableCash = currentShift.startCash + currentShift.sales - currentShift.drops - (currentShift.cashierExpenses || 0);
+    if (amount > availableCash) {
+        return alert(`الرصيد المتاح (${availableCash} ج) لا يكفي`);
+    }
 
-        try {
-            currentShift.drops += amount;
-            await updateDoc(doc(db, "shifts", currentShift.id), { drops: currentShift.drops });
-            
-            alert(`تم تسليم مبلغ ${amount} جنيه للمدير بنجاح.`);
-            cashDropModal.style.display = 'none';
-            document.getElementById('dropAmountInput').value = '';
-            document.getElementById('dropAdminPassword').value = '';
-            window.playSound('success');
-        } catch (error) {
-            alert("حدث خطأ أثناء الحفظ في السيرفر!");
-            currentShift.drops -= amount; 
-        } finally {
-            btn.innerText = "تأكيد السحب";
-            btn.disabled = false;
-        }
+    if (pass === ADMIN_PASSWORD) {
+        currentShift.drops += amount;
+        alert(`تم تسليم مبلغ ${amount} جنيه للمدير بنجاح.`);
+        cashDropModal.style.display = 'none';
+        document.getElementById('dropAmountInput').value = '';
+        document.getElementById('dropAdminPassword').value = '';
+        window.playSound('success');
     } else {
         alert("كلمة مرور المدير غير صحيحة!");
         window.playSound('error');
     }
 });
 
-// ميزة جديدة: مصروفات الكاشير (النثرية)
-const cashierExpenseModal = document.getElementById('cashierExpenseModal');
-document.getElementById('openCashierExpenseBtn').addEventListener('click', () => {
-    cashierExpenseModal.style.display = 'flex';
-});
-document.getElementById('closeCashierExpBtn').addEventListener('click', () => {
-    cashierExpenseModal.style.display = 'none';
-});
+// مصروفات الكاشير (النثرية)
 document.getElementById('confirmCashierExpBtn').addEventListener('click', async () => {
     const title = document.getElementById('cashierExpTitle').value.trim();
     const amount = parseFloat(document.getElementById('cashierExpAmount').value);
-
-    if (!title || isNaN(amount) || amount <= 0) return alert("برجاء إدخال البيانات بشكل صحيح.");
+    
+    if (!title || isNaN(amount) || amount <= 0) return alert("بيانات غير صحيحة");
+    
+    const availableCash = currentShift.startCash + currentShift.sales - currentShift.drops - (currentShift.cashierExpenses || 0);
+    if (amount > availableCash) {
+        return alert(`الرصيد المتاح (${availableCash} ج) لا يكفي`);
+    }
+    
+    currentShift.cashierExpenses += amount;
     
     try {
-        currentShift.cashierExpenses += amount;
-        
-        const batch = writeBatch(db);
-        // تحديث الوردية
-        batch.update(doc(db, "shifts", currentShift.id), { cashierExpenses: currentShift.cashierExpenses });
-        // إضافة المصروف للإحصائيات العامة للمدير
-        batch.set(doc(collection(db, "expenses")), { 
-            title: `(وردية الكاشير) ${title}`, 
-            amount: amount, 
-            date: new Date().toISOString() 
+        await addDoc(collection(db, "cashierExpenses"), {
+            title: title,
+            amount: amount,
+            cashier: currentShift.cashierName,
+            timestamp: new Date().toISOString()
         });
-        // تحديث الإجمالي اللحظي
-        batch.set(doc(db, "stats", "financials"), { totalExpenses: increment(amount) }, { merge: true });
-        
-        await batch.commit();
-        
-        alert("تم تسجيل المصروف وخصمه من الدرج.");
-        cashierExpenseModal.style.display = 'none';
-        document.getElementById('cashierExpTitle').value = '';
-        document.getElementById('cashierExpAmount').value = '';
-        window.playSound('success');
     } catch (error) {
-        alert("خطأ في تسجيل المصروف.");
-        currentShift.cashierExpenses -= amount;
+        console.error("خطأ في حفظ المصروف:", error);
     }
+    
+    document.getElementById('cashierExpenseModal').style.display = 'none';
+    document.getElementById('cashierExpTitle').value = '';
+    document.getElementById('cashierExpAmount').value = '';
+    alert(`تم تسجيل مصروف ${title} بقيمة ${amount} ج`);
+    window.playSound('success');
+});
+
+document.getElementById('closeCashierExpBtn').addEventListener('click', () => {
+    document.getElementById('cashierExpenseModal').style.display = 'none';
 });
 
 // تقفيل الوردية
@@ -336,9 +349,9 @@ document.getElementById('navEndShiftBtn').addEventListener('click', () => {
     document.getElementById('reportStartCash').innerText = currentShift.startCash;
     document.getElementById('reportSales').innerText = currentShift.sales;
     document.getElementById('reportDrops').innerText = currentShift.drops;
-    document.getElementById('reportCashierExpenses').innerText = currentShift.cashierExpenses;
+    document.getElementById('reportCashierExpenses').innerText = currentShift.cashierExpenses || 0;
     
-    const expected = currentShift.startCash + currentShift.sales - currentShift.drops - currentShift.cashierExpenses;
+    const expected = currentShift.startCash + currentShift.sales - currentShift.drops - (currentShift.cashierExpenses || 0);
     document.getElementById('reportExpectedCash').innerText = expected;
 
     endShiftModal.style.display = 'flex';
@@ -348,31 +361,48 @@ document.getElementById('closeEndShiftBtn').addEventListener('click', () => {
     endShiftModal.style.display = 'none';
 });
 
+// تأكيد التقفيل مع تقرير شامل
 document.getElementById('confirmEndShiftBtn').addEventListener('click', async () => {
     const btn = document.getElementById('confirmEndShiftBtn');
-    btn.innerText = "جاري إغلاق الوردية...";
+    btn.innerText = "جاري الحفظ...";
     btn.disabled = true;
 
     try {
-        await updateDoc(doc(db, "shifts", currentShift.id), {
-            status: "closed",
-            endTime: new Date().toISOString()
-        });
+        const expectedCash = currentShift.startCash + currentShift.sales - currentShift.drops - (currentShift.cashierExpenses || 0);
+        const actualCashInput = prompt("أدخل النقدية الفعلية الموجودة بالدرج الآن:", expectedCash);
+        const actualCash = parseFloat(actualCashInput);
+        
+        if (isNaN(actualCash)) {
+            alert("لم يتم إدخال قيمة صحيحة، سيتم افتراض أن النقدية الفعلية تساوي المتوقعة.");
+        }
+        
+        const difference = actualCash - expectedCash;
 
-        currentShift = { id: null, active: false, cashierName: "", startCash: 0, sales: 0, drops: 0, cashierExpenses: 0, startTime: null };
+        const shiftData = {
+            ...currentShift,
+            endTime: new Date().toISOString(),
+            actualCash: actualCash || expectedCash,
+            expectedCash: expectedCash,
+            difference: difference || 0,
+            status: (difference || 0) >= 0 ? 'زيادة' : 'عجز'
+        };
+        
+        await addDoc(collection(db, "shifts"), shiftData);
+
+        currentShift = { active: false, cashierName: "", startCash: 0, sales: 0, drops: 0, cashierExpenses: 0, startTime: null };
         document.getElementById('shiftInfoDisplay').innerText = '';
         endShiftModal.style.display = 'none';
-        
-        if (posSection.style.display !== 'none') {
-            startShiftModal.style.display = 'flex';
-        }
+        startShiftModal.style.display = 'flex';
         
         document.getElementById('cashierPasswordInput').value = '';
         document.getElementById('startCashInput').value = '';
+        
         window.playSound('success');
-        alert("تم تقفيل الوردية بنجاح.");
+        const diffMsg = (difference || 0) >= 0 ? `زيادة: ${Math.abs(difference || 0)} ج` : `عجز: ${Math.abs(difference || 0)} ج`;
+        alert(`تم تقفيل الوردية بنجاح. ${diffMsg}`);
     } catch (error) {
-        alert("حدث خطأ أثناء الاتصال بالسيرفر لإغلاق الوردية!");
+        console.error("End Shift Error:", error);
+        alert("حدث خطأ أثناء حفظ تقرير الوردية!");
     } finally {
         btn.innerText = "إنهاء الوردية وبدء وردية جديدة";
         btn.disabled = false;
@@ -380,24 +410,26 @@ document.getElementById('confirmEndShiftBtn').addEventListener('click', async ()
 });
 
 // ==========================================
-// 6. إدارة المخزن، تزويد البضاعة، والقائمة السريعة
+// 6. إدارة المخزن (مع searchKey وتفعيل أزرار التعديل والحذف)
 // ==========================================
+
 document.getElementById('addProductForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button');
     btn.innerText = "جاري الإضافة...";
     btn.disabled = true;
 
-    const nameVal = document.getElementById('prodName').value;
-
     const newProduct = {
         barcode: document.getElementById('prodBarcode').value,
-        name: nameVal,
-        searchKey: normalizeArabic(nameVal), // ميزة البحث المرن
+        name: document.getElementById('prodName').value,
         buyPrice: parseFloat(document.getElementById('prodBuyPrice').value),
         sellPrice: parseFloat(document.getElementById('prodSellPrice').value),
         quantity: parseInt(document.getElementById('prodQty').value),
-        minAlert: parseInt(document.getElementById('prodMinAlert').value)
+        minAlert: parseInt(document.getElementById('prodMinAlert').value),
+        searchKey: [
+            normalizeText(document.getElementById('prodName').value),
+            normalizeText(document.getElementById('prodBarcode').value)
+        ]
     };
 
     try {
@@ -408,7 +440,7 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
     } catch (error) {
         alert("حدث خطأ أثناء الإضافة.");
     } finally {
-        btn.innerText = "إضافة المنتج";
+        btn.innerText = "إضافة / تحديث المنتج";
         btn.disabled = false;
     }
 });
@@ -423,6 +455,10 @@ async function loadInventory() {
         querySnapshot.forEach((doc) => {
             let prod = doc.data();
             prod.id = doc.id;
+            
+            // تجاهل المنتجات المحذوفة منطقياً
+            if (prod.quantity === -99999) return;
+            
             productsList.push(prod);
             let isLowStock = prod.quantity <= prod.minAlert ? 'low-stock' : '';
             tbody.innerHTML += `
@@ -432,7 +468,10 @@ async function loadInventory() {
                     <td>${prod.quantity}</td>
                     <td>${prod.buyPrice}</td>
                     <td>${prod.sellPrice}</td>
-                    <td><button onclick="alert('سيتم إضافة التعديل لاحقاً')">تعديل</button></td>
+                    <td>
+                        <button onclick="window.editProduct('${prod.id}')" style="margin-right:5px;">تعديل</button>
+                        <button onclick="window.deleteProduct('${prod.id}')" style="background:var(--danger-color)">حذف</button>
+                    </td>
                 </tr>`;
         });
     } catch (error) {
@@ -440,138 +479,129 @@ async function loadInventory() {
     }
 }
 
-// ميزة جديدة: تزويد البضاعة وحساب متوسط التكلفة
-let currentRestockProduct = null;
-const restockBarcode = document.getElementById('restockBarcode');
-const restockInfo = document.getElementById('restockProductInfo');
-const restockQty = document.getElementById('restockQty');
-const restockBuyPrice = document.getElementById('restockBuyPrice');
-const restockSubmitBtn = document.getElementById('restockSubmitBtn');
+// تفعيل أزرار التعديل والحذف
+window.editProduct = async function(productId) {
+    const product = productsList.find(p => p.id === productId);
+    if (!product) return alert("المنتج غير موجود");
+    
+    const newName = prompt("اسم المنتج الجديد:", product.name);
+    if (!newName) return;
+    const newSellPrice = prompt("سعر البيع الجديد:", product.sellPrice);
+    if (!newSellPrice) return;
+    
+    try {
+        const productRef = doc(db, "products", productId);
+        await updateDoc(productRef, {
+            name: newName,
+            sellPrice: parseFloat(newSellPrice),
+            searchKey: [normalizeText(newName), normalizeText(product.barcode || '')]
+        });
+        alert("تم التعديل بنجاح");
+        loadInventory();
+    } catch (error) {
+        alert("خطأ في التعديل");
+    }
+};
 
-restockBarcode.addEventListener('keypress', async (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        const code = restockBarcode.value.trim();
-        const q = query(collection(db, "products"), where("barcode", "==", code), limit(1));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-            currentRestockProduct = { id: snap.docs[0].id, ...snap.docs[0].data() };
-            restockInfo.style.display = 'block';
-            restockInfo.innerHTML = `<h4>${currentRestockProduct.name}</h4>
-                                     <p>الكمية الحالية: ${currentRestockProduct.quantity} | سعر الشراء الحالي: ${currentRestockProduct.buyPrice} ج</p>`;
-            restockQty.disabled = false;
-            restockBuyPrice.disabled = false;
-            restockSubmitBtn.disabled = false;
-            restockQty.focus();
-        } else {
-            alert("المنتج غير موجود بالمخزن!");
-            currentRestockProduct = null;
+window.deleteProduct = async function(productId) {
+    if (confirm("هل أنت متأكد من حذف هذا المنتج؟")) {
+        try {
+            // حذف منطقي
+            await updateDoc(doc(db, "products", productId), { quantity: -99999 });
+            alert("تم الحذف بنجاح");
+            loadInventory();
+        } catch (error) {
+            alert("خطأ في الحذف");
         }
     }
-});
+};
+
+// ==========================================
+// 7. تزويد البضاعة (Restock) مع متوسط التكلفة
+// ==========================================
+
+async function lookupProductForRestock(barcode) {
+    const prodNameInput = document.getElementById('restockProdName');
+    const addQtyInput = document.getElementById('restockAddQty');
+    
+    if (!barcode) return;
+    
+    // بحث محلي أولاً
+    const localProduct = productsList.find(p => p.barcode === barcode);
+    if (localProduct) {
+        prodNameInput.value = localProduct.name;
+        prodNameInput.dataset.productId = localProduct.id;
+        addQtyInput.focus();
+        return;
+    }
+    
+    // بحث في Firebase
+    const q = query(collection(db, "products"), where("barcode", "==", barcode), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+        const prod = snap.docs[0].data();
+        prodNameInput.value = prod.name;
+        prodNameInput.dataset.productId = snap.docs[0].id;
+        addQtyInput.focus();
+    } else {
+        alert("المنتج غير موجود في المخزن!");
+        prodNameInput.value = '';
+        prodNameInput.dataset.productId = '';
+    }
+}
 
 document.getElementById('restockForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!currentRestockProduct) return;
-
-    const addedQty = parseInt(restockQty.value);
-    let newPriceInput = restockBuyPrice.value.trim();
-    let finalBuyPrice = currentRestockProduct.buyPrice;
-
-    if (newPriceInput !== "" && !isNaN(newPriceInput)) {
-        const newPrice = parseFloat(newPriceInput);
-        const oldTotalVal = currentRestockProduct.quantity * currentRestockProduct.buyPrice;
-        const newTotalVal = addedQty * newPrice;
-        const totalQty = currentRestockProduct.quantity + addedQty;
-        finalBuyPrice = (oldTotalVal + newTotalVal) / totalQty;
-        finalBuyPrice = Math.round(finalBuyPrice * 100) / 100;
-    }
-
+    const barcode = document.getElementById('restockBarcode').value;
+    const addQty = parseInt(document.getElementById('restockAddQty').value);
+    const newBuyPrice = parseFloat(document.getElementById('restockNewBuyPrice').value) || 0;
+    const newSellPrice = parseFloat(document.getElementById('restockNewSellPrice').value) || 0;
+    
+    if (isNaN(addQty) || addQty <= 0) return alert("الكمية غير صالحة");
+    
     try {
-        restockSubmitBtn.disabled = true;
-        await updateDoc(doc(db, "products", currentRestockProduct.id), {
-            quantity: currentRestockProduct.quantity + addedQty,
-            buyPrice: finalBuyPrice
-        });
-        alert(`تم التزويد بنجاح! متوسط التكلفة الجديد: ${finalBuyPrice} ج`);
+        const q = query(collection(db, "products"), where("barcode", "==", barcode), limit(1));
+        const snap = await getDocs(q);
+        if (snap.empty) return alert("المنتج غير موجود!");
+        
+        const productDoc = snap.docs[0];
+        const product = productDoc.data();
+        const productRef = doc(db, "products", productDoc.id);
+        
+        // حساب متوسط التكلفة الجديد
+        let updatedData = {
+            quantity: increment(addQty)
+        };
+        
+        if (newBuyPrice > 0 && product.buyPrice > 0 && product.quantity > 0) {
+            const oldTotalCost = product.buyPrice * product.quantity;
+            const newTotalCost = newBuyPrice * addQty;
+            const totalQuantity = product.quantity + addQty;
+            const newAvgBuyPrice = (oldTotalCost + newTotalCost) / totalQuantity;
+            updatedData.buyPrice = Math.round(newAvgBuyPrice * 100) / 100; // تقريب لرقمين عشريين
+        } else if (newBuyPrice > 0) {
+            updatedData.buyPrice = newBuyPrice;
+        }
+        
+        if (newSellPrice > 0) {
+            updatedData.sellPrice = newSellPrice;
+        }
+        
+        await updateDoc(productRef, updatedData);
+        
         document.getElementById('restockForm').reset();
-        restockInfo.style.display = 'none';
-        restockQty.disabled = true; 
-        restockBuyPrice.disabled = true; 
-        restockSubmitBtn.disabled = true;
-        currentRestockProduct = null;
+        document.getElementById('restockProdName').value = '';
+        alert(`تم تزويد ${product.name} بنجاح. الكمية الجديدة: ${product.quantity + addQty}`);
         loadInventory();
     } catch (error) {
-        alert("حدث خطأ أثناء التزويد.");
-        restockSubmitBtn.disabled = false;
+        console.error(error);
+        alert("خطأ في التزويد");
     }
 });
 
-// ميزة جديدة: القائمة السريعة
-document.getElementById('addQuickItemForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const barcode = document.getElementById('quickItemBarcode').value.trim();
-    const file = document.getElementById('quickItemImage').files[0];
-    
-    if (!file) return alert("اختر صورة.");
-
-    const reader = new FileReader();
-    reader.onload = async function(event) {
-        const base64Img = event.target.result;
-        try {
-            const q = query(collection(db, "products"), where("barcode", "==", barcode), limit(1));
-            const snap = await getDocs(q);
-            if(snap.empty) return alert("الباركود غير موجود بالمخزن.");
-            
-            const prodData = snap.docs[0].data();
-            await addDoc(collection(db, "quick_items"), {
-                barcode: barcode,
-                name: prodData.name,
-                image: base64Img
-            });
-            alert("تم إضافة المنتج للقائمة السريعة.");
-            document.getElementById('addQuickItemForm').reset();
-            loadQuickItemsAdmin();
-        } catch(err) {
-            alert("خطأ في الحفظ.");
-        }
-    };
-    reader.readAsDataURL(file);
-});
-
-async function loadQuickItemsAdmin() {
-    const list = document.getElementById('adminQuickItemsList');
-    list.innerHTML = 'جاري التحميل...';
-    const snap = await getDocs(collection(db, "quick_items"));
-    list.innerHTML = '';
-    snap.forEach(doc => {
-        const data = doc.data();
-        list.innerHTML += `<div class="quick-item-btn" style="cursor:default;">
-            <img src="${data.image}"><span>${data.name}</span>
-            <button onclick="alert('حذف قريباً')" style="background:var(--danger-color); padding: 5px; font-size: 0.8rem; width:100%;">حذف</button>
-        </div>`;
-    });
-}
-
-async function loadQuickItemsPos() {
-    const area = document.getElementById('quickItemsArea');
-    area.innerHTML = '';
-    const snap = await getDocs(collection(db, "quick_items"));
-    snap.forEach(doc => {
-        const data = doc.data();
-        area.innerHTML += `
-            <div class="quick-item-btn" onclick="addQuickItemToCart('${data.barcode}')">
-                <img src="${data.image}" alt="${data.name}">
-                <span>${data.name}</span>
-            </div>`;
-    });
-}
-
-window.addQuickItemToCart = async function(barcode) {
-    const barcodeInput = document.getElementById('barcodeInput');
-    barcodeInput.value = barcode;
-    barcodeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
-};
+// ==========================================
+// 8. الكاشيرية (مع تفعيل الحذف)
+// ==========================================
 
 document.getElementById('addCashierForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -596,11 +626,12 @@ async function loadCashiers() {
         tbody.innerHTML = '';
         snap.forEach(doc => {
             const data = doc.data();
+            if (data.active === false) return; // تجاهل المحذوفين
             tbody.innerHTML += `
                 <tr>
                     <td>${data.name}</td>
                     <td>${data.password}</td>
-                    <td><button style="background:var(--danger-color)" onclick="alert('سيتم تفعيل الحذف لاحقاً')">حذف</button></td>
+                    <td><button style="background:var(--danger-color)" onclick="window.deleteCashier('${doc.id}')">حذف</button></td>
                 </tr>`;
         });
     } catch (error) {
@@ -608,47 +639,88 @@ async function loadCashiers() {
     }
 }
 
+window.deleteCashier = async function(cashierId) {
+    if (confirm("هل أنت متأكد من حذف هذا الكاشير؟")) {
+        try {
+            await updateDoc(doc(db, "cashiers", cashierId), { active: false });
+            alert("تم الحذف بنجاح");
+            loadCashiers();
+        } catch (error) {
+            alert("خطأ في الحذف");
+        }
+    }
+};
+
 // ==========================================
-// 7. شاشة البيع، منع التكرار، وتأكيد الفاتورة
+// 9. شاشة البيع (بحث محلي، Debounce، منع Enter)
 // ==========================================
 
 const barcodeInput = document.getElementById('barcodeInput');
-let lastPosInputTime = 0;
-let lastPosInputValue = "";
-
 barcodeInput.addEventListener('keypress', async (e) => {
     if (e.key === 'Enter') {
+        e.preventDefault(); // منع تقديم أي نموذج
         const code = barcodeInput.value.trim();
         if(code === "") return;
 
-        // ميزة جديدة: منع التكرار (Debounce) لمدة 4 ثوانٍ
-        const now = new Date().getTime();
-        if (code === lastPosInputValue && (now - lastPosInputTime) < 4000) {
-            barcodeInput.value = ''; 
+        // Debounce: تجاهل نفس الباركود خلال 4 ثوانٍ
+        if (barcodeDebounceTimers[code]) {
             return;
         }
-        lastPosInputValue = code;
-        lastPosInputTime = now;
+        barcodeDebounceTimers[code] = true;
+        setTimeout(() => {
+            delete barcodeDebounceTimers[code];
+        }, 4000);
 
+        // البحث محلياً أولاً
+        const normalizedSearch = normalizeText(code);
+        const localProduct = productsList.find(p => 
+            p.barcode === code || 
+            (p.searchKey && p.searchKey.includes(normalizedSearch))
+        );
+        
+        if (localProduct) {
+            addToCart({...localProduct});
+            barcodeInput.value = '';
+            return;
+        }
+
+        // إذا لم يوجد محلياً، ابحث في Firebase
         try {
-            // البحث الدقيق بالباركود أولاً
-            let q = query(collection(db, "products"), where("barcode", "==", code), limit(1));
-            let querySnapshot = await getDocs(q);
-
-            // البحث المرن بالاسم (إذا لم ينجح الباركود)
-            if (querySnapshot.empty) {
-                const normalizedSearch = normalizeArabic(code);
-                q = query(collection(db, "products"), where("searchKey", ">=", normalizedSearch), where("searchKey", "<=", normalizedSearch + '\uf8ff'), limit(1));
-                querySnapshot = await getDocs(q);
-            }
-
-            if (!querySnapshot.empty) {
-                const productDoc = querySnapshot.docs[0];
+            let found = false;
+            
+            // بحث بالباركود
+            const qBarcode = query(collection(db, "products"), where("barcode", "==", code), limit(1));
+            const barcodeSnap = await getDocs(qBarcode);
+            
+            if (!barcodeSnap.empty) {
+                const productDoc = barcodeSnap.docs[0];
                 let product = productDoc.data();
                 product.id = productDoc.id;
-                addToCart(product);
-                barcodeInput.value = '';
-            } else {
+                if (product.quantity !== -99999) {
+                    addToCart(product);
+                    barcodeInput.value = '';
+                    found = true;
+                }
+            }
+            
+            // بحث بالاسم إذا لم يجد بالباركود
+            if (!found) {
+                const qName = query(collection(db, "products"), where("searchKey", "array-contains", normalizedSearch), limit(1));
+                const nameSnap = await getDocs(qName);
+                
+                if (!nameSnap.empty) {
+                    const productDoc = nameSnap.docs[0];
+                    let product = productDoc.data();
+                    product.id = productDoc.id;
+                    if (product.quantity !== -99999) {
+                        addToCart(product);
+                        barcodeInput.value = '';
+                        found = true;
+                    }
+                }
+            }
+            
+            if (!found) {
                 window.playSound('error');
                 alert("المنتج غير موجود!");
             }
@@ -658,6 +730,25 @@ barcodeInput.addEventListener('keypress', async (e) => {
         }
     }
 });
+
+// منع Enter في نماذج الإضافة ونقل التركيز
+document.getElementById('prodBarcode').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('prodName').focus();
+    }
+});
+
+document.getElementById('restockBarcode').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        lookupProductForRestock(e.target.value);
+    }
+});
+
+// ==========================================
+// 10. دوال السلة والبيع (مع تحديث الإحصائيات الفورية)
+// ==========================================
 
 function addToCart(product) {
     let existingItem = cart.find(item => item.id === product.id);
@@ -729,6 +820,34 @@ window.removeFromCart = function(index) {
     renderCart();
 };
 
+// دالة تحديث الإحصائيات الفورية
+async function updateStatsInRealTime(salesAmount, costAmount) {
+    const today = new Date().toISOString().split('T')[0];
+    const month = today.substring(0, 7);
+    
+    try {
+        const batch = writeBatch(db);
+        
+        const todayRef = doc(db, "stats", `day_${today}`);
+        batch.set(todayRef, {
+            totalSales: increment(salesAmount),
+            totalCost: increment(costAmount),
+            date: today
+        }, { merge: true });
+        
+        const monthRef = doc(db, "stats", `month_${month}`);
+        batch.set(monthRef, {
+            totalSales: increment(salesAmount),
+            totalCost: increment(costAmount),
+            month: month
+        }, { merge: true });
+        
+        await batch.commit();
+    } catch (error) {
+        console.error("Stats update error:", error);
+    }
+}
+
 document.getElementById('checkoutBtn').addEventListener('click', async () => {
     if (!currentShift.active) {
         alert("لا توجد وردية مفتوحة! برجاء استلام الوردية أولاً.");
@@ -767,29 +886,18 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
 
     try {
         const batch = writeBatch(db);
-        
         const invoiceRef = doc(collection(db, "invoices")); 
         batch.set(invoiceRef, newInvoice);
 
         for (const item of cart) {
             const productRef = doc(db, "products", item.id);
-            const newQty = item.quantity - item.cartQty;
-            batch.update(productRef, { quantity: newQty });
+            batch.update(productRef, { quantity: increment(-item.cartQty) });
         }
-
-        const shiftRef = doc(db, "shifts", currentShift.id);
-        batch.update(shiftRef, { sales: currentShift.sales + totalSales });
-
-        // ميزة جديدة: تحديث الإحصائيات المركزية لحظياً
-        const statsRef = doc(db, "stats", "financials");
-        batch.set(statsRef, { 
-            totalSales: increment(totalSales), 
-            totalCost: increment(totalCost) 
-        }, { merge: true });
 
         await batch.commit();
 
-        currentShift.sales += totalSales; 
+        currentShift.sales += totalSales;
+        await updateStatsInRealTime(totalSales, totalCost);
 
         window.playSound('success'); 
         alert("تم البيع وحفظ الفاتورة بنجاح!");
@@ -798,7 +906,6 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
         document.getElementById('barcodeInput').focus();
 
     } catch (error) {
-        console.error(error);
         window.playSound('error'); 
         alert("حدث خطأ! لم يتم حفظ الفاتورة.");
     } finally {
@@ -808,32 +915,118 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
 });
 
 // ==========================================
-// 8. المصروفات والإحصائيات السريعة
+// 11. القائمة السريعة (Quick Items)
 // ==========================================
+
+async function loadQuickItems() {
+    const grid = document.getElementById('quickItemsGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    try {
+        const snap = await getDocs(collection(db, "quickItems"));
+        if (snap.empty) {
+            return;
+        }
+        
+        snap.forEach(doc => {
+            const item = doc.data();
+            if (item.active === false) return;
+            
+            const btn = document.createElement('button');
+            btn.innerHTML = `${item.image ? `<img src="${item.image}" alt="${item.name}">` : ''} ${item.name}`;
+            btn.onclick = () => {
+                const product = productsList.find(p => p.id === item.productId);
+                if (product) addToCart({...product});
+                else alert("المنتج لم يعد متوفرًا");
+            };
+            grid.appendChild(btn);
+        });
+    } catch (error) {
+        console.error("خطأ في تحميل القائمة السريعة:", error);
+    }
+}
+
+async function loadQuickItemsAdmin() {
+    const list = document.getElementById('quickItemsAdminList');
+    if (!list) return;
+    list.innerHTML = 'جاري التحميل...';
+    
+    try {
+        const snap = await getDocs(collection(db, "quickItems"));
+        list.innerHTML = '';
+        snap.forEach(doc => {
+            const item = doc.data();
+            if (item.active === false) return;
+            list.innerHTML += `
+                <div style="border:1px solid var(--border-color); padding:10px; border-radius:8px; text-align:center;">
+                    <p><strong>${item.name}</strong></p>
+                    ${item.image ? `<img src="${item.image}" style="max-width:80px; max-height:80px; display:block; margin:5px auto;">` : ''}
+                    <button onclick="window.removeQuickItem('${doc.id}')" style="background:var(--danger-color); margin-top:5px;">إزالة</button>
+                </div>`;
+        });
+    } catch (error) {
+        list.innerHTML = 'خطأ في التحميل';
+    }
+}
+
+document.getElementById('addToQuickBtn').addEventListener('click', async () => {
+    const searchInput = document.getElementById('quickSearchInput').value.trim();
+    if (!searchInput) return alert("اكتب اسم المنتج للبحث");
+    
+    const normalizedSearch = normalizeText(searchInput);
+    const product = productsList.find(p => 
+        (p.searchKey && p.searchKey.includes(normalizedSearch))
+    );
+    if (!product) return alert("المنتج غير موجود");
+    
+    const snap = await getDocs(collection(db, "quickItems"));
+    let activeCount = 0;
+    snap.forEach(doc => {
+        if (doc.data().active !== false) activeCount++;
+    });
+    if (activeCount >= 15) return alert("لا يمكن إضافة أكثر من 15 منتج");
+    
+    try {
+        await addDoc(collection(db, "quickItems"), {
+            productId: product.id,
+            name: product.name,
+            image: product.image || "",
+            active: true
+        });
+        document.getElementById('quickSearchInput').value = '';
+        alert("تمت الإضافة للقائمة السريعة");
+        loadQuickItemsAdmin();
+    } catch (error) {
+        alert("خطأ في الإضافة");
+    }
+});
+
+window.removeQuickItem = async (docId) => {
+    if (confirm("إزالة هذا المنتج من القائمة السريعة؟")) {
+        await updateDoc(doc(db, "quickItems", docId), { active: false });
+        loadQuickItemsAdmin();
+    }
+};
+
+// ==========================================
+// 12. المصروفات والإحصائيات
+// ==========================================
+
 document.getElementById('addExpenseForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button');
     btn.innerText = "جاري التسجيل...";
     btn.disabled = true;
 
-    const amount = parseFloat(document.getElementById('expAmount').value);
     const newExpense = {
         title: document.getElementById('expTitle').value,
-        amount: amount,
+        amount: parseFloat(document.getElementById('expAmount').value),
         date: new Date().toISOString()
     };
 
     try {
-        const batch = writeBatch(db);
-        const expRef = doc(collection(db, "expenses"));
-        batch.set(expRef, newExpense);
-        
-        // تحديث الإحصائيات المركزية لحظياً
-        const statsRef = doc(db, "stats", "financials");
-        batch.set(statsRef, { totalExpenses: increment(amount) }, { merge: true });
-
-        await batch.commit();
-
+        await addDoc(collection(db, "expenses"), newExpense);
         alert("تم تسجيل المصروف!");
         document.getElementById('addExpenseForm').reset();
     } catch (error) {
@@ -846,31 +1039,39 @@ document.getElementById('addExpenseForm').addEventListener('submit', async (e) =
 
 async function loadStats() {
     try {
-        // ميزة جديدة: قراءة الإحصائيات بسرعة فائقة من ملف واحد بدلاً من كل الفواتير
-        const docSnap = await getDoc(doc(db, "stats", "financials"));
-        if(docSnap.exists()) {
-            const data = docSnap.data();
-            const totalSales = data.totalSales || 0;
-            const totalCost = data.totalCost || 0;
-            const totalExpenses = data.totalExpenses || 0;
-            
-            const netProfit = (totalSales - totalCost) - totalExpenses;
-            
-            document.getElementById('totalSalesStat').innerText = totalSales + " جنيه";
-            document.getElementById('totalExpensesStat').innerText = totalExpenses + " جنيه";
-            
-            const netProfitEl = document.getElementById('netProfitStat');
-            netProfitEl.innerText = netProfit + " جنيه";
-            netProfitEl.style.color = netProfit >= 0 ? "var(--success-color)" : "var(--danger-color)";
-        }
+        let totalSales = 0; let totalCost = 0; let totalExpenses = 0;
+
+        const invoicesSnap = await getDocs(collection(db, "invoices"));
+        invoicesSnap.forEach(doc => {
+            const data = doc.data();
+            totalSales += data.totalSales || 0;
+            totalCost += data.totalCost || 0;
+        });
+
+        const expensesSnap = await getDocs(collection(db, "expenses"));
+        expensesSnap.forEach(doc => {
+            totalExpenses += doc.data().amount || 0;
+        });
+
+        let grossProfit = totalSales - totalCost;
+        let netProfit = grossProfit - totalExpenses;
+
+        document.getElementById('totalSalesStat').innerText = totalSales.toFixed(2) + " جنيه";
+        document.getElementById('totalExpensesStat').innerText = totalExpenses.toFixed(2) + " جنيه";
+        
+        const netProfitEl = document.getElementById('netProfitStat');
+        netProfitEl.innerText = netProfit.toFixed(2) + " جنيه";
+        netProfitEl.style.color = netProfit >= 0 ? "var(--success-color)" : "var(--danger-color)";
+
     } catch (error) {
         console.error("Error loading stats: ", error);
     }
 }
 
 // ==========================================
-// 9. القائمة الجانبية والصوتيات
+// 13. القائمة الجانبية والكاميرا والصوتيات
 // ==========================================
+
 const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
 const menuBtn = document.getElementById('menuBtn');
@@ -882,6 +1083,27 @@ function closeSidebar() { sidebar.classList.remove('active'); sidebarOverlay.cla
 menuBtn.addEventListener('click', openSidebar);
 closeSidebarBtn.addEventListener('click', closeSidebar);
 sidebarOverlay.addEventListener('click', closeSidebar);
+navPosBtn.addEventListener('click', closeSidebar);
+navAdminBtn.addEventListener('click', closeSidebar);
+
+// إظهار وإخفاء القائمة الفرعية للإدارة
+navAdminBtn.addEventListener('click', () => {
+    const subMenu = document.getElementById('adminSubMenu');
+    if (adminSection.style.display === 'block') {
+        subMenu.style.display = 'flex';
+    }
+});
+
+// متابعة حالة القائمة الفرعية
+const observer = new MutationObserver(() => {
+    const subMenu = document.getElementById('adminSubMenu');
+    if (adminSection.style.display === 'block') {
+        subMenu.style.display = 'flex';
+    } else {
+        subMenu.style.display = 'none';
+    }
+});
+observer.observe(adminSection, { attributes: true, attributeFilter: ['style'] });
 
 const successSound = document.getElementById('successSound');
 const errorSound = document.getElementById('errorSound');
@@ -894,126 +1116,75 @@ window.playSound = function(type) {
 };
 
 // ==========================================
-// 10. الكاميرا المتقدمة وحفظ حالة الإغلاق
+// 14. إعداد الكاميرات الثلاثة (مع الإغلاق التلقائي)
 // ==========================================
-const startCameraBtn = document.getElementById('startCameraBtn');
-const readerDiv = document.getElementById('reader');
-const autoCloseCheckbox = document.getElementById('autoCloseScanner');
-let html5QrCode;
-let isCameraOpen = false;
 
-// متغيرات للتحكم في المسح المتتالي
-let lastScanTime = 0;
-let lastScannedCode = "";
+function setupCamera(buttonId, readerDivId, inputId, autoCloseCheckboxId, onScanCallback) {
+    const btn = document.getElementById(buttonId);
+    const readerDiv = document.getElementById(readerDivId);
+    const input = document.getElementById(inputId);
+    const autoCloseCheckbox = document.getElementById(autoCloseCheckboxId);
+    let html5QrCode;
+    let isCameraOpen = false;
 
-// استرجاع حالة خيار الإغلاق التلقائي
-autoCloseCheckbox.checked = localStorage.getItem('autoCloseScanner') === 'true';
-autoCloseCheckbox.addEventListener('change', (e) => localStorage.setItem('autoCloseScanner', e.target.checked));
-
-
-startCameraBtn.addEventListener('click', () => {
-    if (isCameraOpen) {
-        html5QrCode.stop().then(() => {
-            readerDiv.style.display = 'none';
-            isCameraOpen = false;
-            startCameraBtn.innerHTML = '📷'; 
-            readerDiv.style.boxShadow = "none"; 
-        }).catch(err => console.log("خطأ في إغلاق الكاميرا"));
-    } else {
-        readerDiv.style.display = 'block';
-        html5QrCode = new window.Html5Qrcode("reader");
-        
-        const cameraConfig = { fps: 30, qrbox: { width: 250, height: 100 } };
-        const videoConstraints = { facingMode: "environment" };
-
-        html5QrCode.start(
-            videoConstraints, 
-            cameraConfig,
-            (decodedText) => {
-                const currentTime = new Date().getTime();
-                
-                if (decodedText === lastScannedCode && (currentTime - lastScanTime) < 4000) {
-                    return; 
-                }
-
-                lastScanTime = currentTime;
-                lastScannedCode = decodedText;
-                
-                const barcodeInput = document.getElementById('barcodeInput');
-                barcodeInput.value = decodedText;
-                
-                window.playSound('success');
-                
-                readerDiv.style.transition = "box-shadow 0.2s ease";
-                readerDiv.style.boxShadow = "0px 0px 20px 5px var(--success-color)";
-                
-                setTimeout(() => { readerDiv.style.boxShadow = "none"; }, 500);
-
-                barcodeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
-
-                // الإغلاق التلقائي إذا كان الخيار مفعلاً
-                if (autoCloseCheckbox.checked) {
-                    html5QrCode.stop().then(() => { 
-                        readerDiv.style.display = 'none'; 
-                        isCameraOpen = false; 
-                        startCameraBtn.innerHTML = '📷'; 
-                    });
-                }
-            },
-            (errorMessage) => {} 
-        ).then(() => {
-            isCameraOpen = true;
-            startCameraBtn.innerHTML = '❌ إغلاق الكاميرا';
-        }).catch(() => {
-            alert("برجاء السماح للمتصفح باستخدام الكاميرا!");
-            readerDiv.style.display = 'none';
+    // استعادة حالة Checkbox من localStorage
+    if (autoCloseCheckbox) {
+        const saved = localStorage.getItem(`${autoCloseCheckboxId}_checked`);
+        if (saved === 'true') autoCloseCheckbox.checked = true;
+        autoCloseCheckbox.addEventListener('change', () => {
+            localStorage.setItem(`${autoCloseCheckboxId}_checked`, autoCloseCheckbox.checked);
         });
     }
+
+    btn.addEventListener('click', () => {
+        if (isCameraOpen) {
+            html5QrCode.stop().then(() => {
+                readerDiv.style.display = 'none';
+                isCameraOpen = false;
+                btn.innerHTML = '📷';
+            }).catch(err => console.log("خطأ في إغلاق الكاميرا"));
+        } else {
+            readerDiv.style.display = 'block';
+            html5QrCode = new window.Html5Qrcode(readerDivId);
+            
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 100 } },
+                (decodedText) => {
+                    input.value = decodedText;
+                    
+                    // الإغلاق التلقائي إذا كان مفعلاً
+                    if (autoCloseCheckbox && autoCloseCheckbox.checked) {
+                        html5QrCode.stop().then(() => {
+                            readerDiv.style.display = 'none';
+                            isCameraOpen = false;
+                            btn.innerHTML = '📷';
+                        });
+                    }
+                    
+                    if (onScanCallback) onScanCallback(decodedText);
+                },
+                () => {} // تجاهل أخطاء المسح
+            ).then(() => {
+                isCameraOpen = true;
+                btn.innerHTML = '❌ إغلاق الكاميرا';
+            }).catch(() => {
+                alert("برجاء السماح للمتصفح باستخدام الكاميرا!");
+                readerDiv.style.display = 'none';
+            });
+        }
+    });
+}
+
+// تهيئة الكاميرات
+setupCamera('startCameraBtn', 'reader', 'barcodeInput', 'autoCloseCameraCheckbox', (text) => {
+    barcodeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
 });
 
-// كاميرا إضافة المنتجات للمخزن
-const startProdCameraBtn = document.getElementById('startProdCameraBtn');
-const prodReaderDiv = document.getElementById('prodReader');
-const prodBarcode = document.getElementById('prodBarcode');
+setupCamera('startProdCameraBtn', 'prodReader', 'prodBarcode', 'autoCloseProdCameraCheckbox', (text) => {
+    document.getElementById('prodName').focus();
+});
 
-let prodHtml5QrCode;
-let isProdCameraOpen = false;
-
-startProdCameraBtn.addEventListener('click', () => {
-    if (isProdCameraOpen) {
-        prodHtml5QrCode.stop().then(() => {
-            prodReaderDiv.style.display = 'none';
-            isProdCameraOpen = false;
-            startProdCameraBtn.innerHTML = '📷'; 
-        }).catch(err => console.log("خطأ في إغلاق الكاميرا"));
-    } else {
-        prodReaderDiv.style.display = 'block';
-        prodHtml5QrCode = new window.Html5Qrcode("prodReader");
-        
-        const cameraConfig = { fps: 30, qrbox: { width: 250, height: 100 } };
-
-        prodHtml5QrCode.start(
-            { facingMode: "environment" }, 
-            cameraConfig,
-            (decodedText) => {
-                prodBarcode.value = decodedText; 
-                window.playSound('success'); 
-                
-                prodHtml5QrCode.stop().then(() => {
-                    prodReaderDiv.style.display = 'none';
-                    isProdCameraOpen = false;
-                    startProdCameraBtn.innerHTML = '📷';
-                    
-                    document.getElementById('prodName').focus();
-                });
-            },
-            (errorMessage) => {} 
-        ).then(() => {
-            isProdCameraOpen = true;
-            startProdCameraBtn.innerHTML = '❌'; 
-        }).catch(() => {
-            alert("برجاء السماح للمتصفح باستخدام الكاميرا!");
-            prodReaderDiv.style.display = 'none';
-        });
-    }
+setupCamera('startRestockCameraBtn', 'restockReader', 'restockBarcode', 'autoCloseRestockCameraCheckbox', async (text) => {
+    await lookupProductForRestock(text);
 });
