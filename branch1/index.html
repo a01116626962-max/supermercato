@@ -23,19 +23,22 @@
             
             <div id="adminSubMenu" class="admin-sub-menu" style="display: none;">
                 <button id="navInventoryBtn" class="active-sub">المخزن</button>
-                <button id="navRestockBtn">تزويد بضاعة</button>
-                <button id="navQuickItemsBtn">القائمة السريعة</button>
-                <button id="navExpensesBtn">المصروفات العامة</button>
+                <button id="navExpensesBtn">المصروفات</button>
                 <button id="navCashiersBtn">الكاشيرية</button>
                 <button id="navStatsBtn">الإحصائيات والأرباح</button>
+                <!-- إضافة تبويبين جديدين للإدارة -->
+                <button id="navRestockBtn">وضع بضاعة</button>
+                <button id="navQuickItemsAdminBtn">القائمة السريعة</button>
             </div>
 
             <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
             <button id="navCashDropBtn" style="color: var(--success-color);">تسليم نقدية للمدير</button>
+            <!-- إضافة زر مصروفات الكاشير -->
+            <button id="navCashierExpBtn" style="color: #f59e0b;">مصروف كاشير (نثرية)</button>
             <button id="navEndShiftBtn" style="color: var(--danger-color);">إنهاء وتقفيل الوردية</button>
         </nav>
         <div class="sidebar-footer">
-            <p>الإصدار v1.2 (المعدل)</p>
+            <p>الإصدار v2</p>
         </div>
     </aside>
 
@@ -52,18 +55,18 @@
             
             <div class="barcode-input-area">
                 <label for="barcodeInput">الباركود / بحث سريع:</label>
-                <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                     <input type="text" id="barcodeInput" placeholder="مرر الباركود أو اكتب اسم المنتج..." autofocus style="margin-bottom: 0;">
                     <button id="startCameraBtn" title="تشغيل الكاميرا" style="padding: 10px 15px; font-size: 1.2rem;">📷</button>
-                </div>
-                <div style="margin-bottom: 15px; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
-                    <input type="checkbox" id="autoCloseScanner" style="width: auto; margin: 0; cursor: pointer;">
-                    <label for="autoCloseScanner" style="color: var(--text-muted); cursor: pointer; font-weight: normal; margin: 0;">إغلاق الكاميرا تلقائياً بعد القراءة</label>
+                    <!-- إضافة Checkbox الإغلاق التلقائي -->
+                    <label style="display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+                        <input type="checkbox" id="autoCloseCameraCheckbox"> إغلاق بعد القراءة
+                    </label>
                 </div>
                 <div id="reader" style="display: none; width: 100%; max-width: 400px; margin: 0 auto 15px auto; border-radius: 8px; overflow: hidden;"></div>
+                <!-- إضافة مساحة أزرار القائمة السريعة -->
+                <div id="quickItemsGrid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 15px;"></div>
             </div>
-
-            <div id="quickItemsArea" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; margin-bottom: 15px;"></div>
 
             <div class="cart-area">
                 <table id="cartTable">
@@ -77,7 +80,9 @@
                         </tr>
                     </thead>
                     <tbody id="cartBody">
-                        <tr><td colspan="5" style="text-align: center;">السلة فارغة</td></tr>
+                        <tr>
+                            <td colspan="5" style="text-align: center;">السلة فارغة</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -85,7 +90,6 @@
             <div class="checkout-area">
                 <h2>الإجمالي المطلوب: <span id="cartTotal">0</span> جنيه</h2>
                 <button id="checkoutBtn">تأكيد البيع وحفظ الفاتورة</button>
-                <button id="openCashierExpenseBtn" style="background-color: #f59e0b; width: 100%; margin-top: 10px;">تسجيل مصروف من الدرج (نثرية)</button>
             </div>
 
         </div>
@@ -94,6 +98,7 @@
     <div id="authModal" class="modal" style="display: none;">
         <div class="modal-content">
             <h2>دخول المدير</h2>
+            <p>برجاء إدخال كلمة المرور للوصول للإدارة</p>
             <input type="password" id="adminPasswordInput" placeholder="كلمة المرور...">
             <button id="verifyAdminBtn">تأكيد</button>
             <button id="closeAuthBtn" class="cancel-btn">إلغاء</button>
@@ -103,6 +108,7 @@
     <div id="startShiftModal" class="modal" style="display: none;"> 
         <div class="modal-content">
             <h2>بدء وردية جديدة</h2>
+            <p>أدخل بيانات الكاشير والعهدة للبدء</p>
             <input type="text" id="cashierNameInput" placeholder="اسم الكاشير..." required>
             <input type="password" id="cashierPasswordInput" placeholder="كلمة المرور..." required>
             <input type="number" id="startCashInput" placeholder="العهدة النقدية في الدرج (جنيه)..." required>
@@ -114,6 +120,7 @@
     <div id="cashDropModal" class="modal" style="display: none;">
         <div class="modal-content">
             <h2>تسليم نقدية للإدارة</h2>
+            <p>سيتم خصم هذا المبلغ من عهدة الدرج</p>
             <input type="number" id="dropAmountInput" placeholder="المبلغ المسحوب (جنيه)..." required>
             <input type="password" id="dropAdminPassword" placeholder="كلمة مرور المدير للتأكيد..." required>
             <button id="confirmDropBtn">تأكيد السحب</button>
@@ -121,12 +128,14 @@
         </div>
     </div>
 
+    <!-- إضافة مودال مصروفات الكاشير -->
     <div id="cashierExpenseModal" class="modal" style="display: none;">
         <div class="modal-content">
-            <h2>تسجيل مصروف كاشير</h2>
-            <input type="text" id="cashierExpTitle" placeholder="بند المصروف (مثال: أكياس)..." required>
-            <input type="number" id="cashierExpAmount" placeholder="المبلغ (جنيه)..." required>
-            <button id="confirmCashierExpBtn">تأكيد المصروف</button>
+            <h2>تسجيل مصروف كاشير (نثرية)</h2>
+            <p>سجل المصروفات اليومية الصغيرة (أكياس، مشروبات...)</p>
+            <input type="text" id="cashierExpTitle" placeholder="بند المصروف" required>
+            <input type="number" id="cashierExpAmount" placeholder="المبلغ (جنيه)" required>
+            <button id="confirmCashierExpBtn">تسجيل المصروف</button>
             <button id="closeCashierExpBtn" class="cancel-btn">إلغاء</button>
         </div>
     </div>
@@ -138,11 +147,12 @@
                 <p>العهدة المستلمة: <span id="reportStartCash" style="font-weight: bold;">0</span> ج</p>
                 <p>إجمالي مبيعات الوردية: <span id="reportSales" style="font-weight: bold; color: var(--success-color);">0</span> ج</p>
                 <p>مسحوبات الإدارة: <span id="reportDrops" style="font-weight: bold; color: var(--danger-color);">0</span> ج</p>
-                <p>مصروفات الكاشير: <span id="reportCashierExpenses" style="font-weight: bold; color: #f59e0b;">0</span> ج</p>
+                <!-- إضافة عرض مصروفات الكاشير في التقرير -->
+                <p>مصروفات الكاشير (نثرية): <span id="reportCashierExpenses" style="font-weight: bold; color: #f59e0b;">0</span> ج</p>
                 <hr style="margin: 10px 0;">
                 <h3 style="color: var(--primary-color);">النقدية المتوقعة بالدرج: <span id="reportExpectedCash">0</span> ج</h3>
             </div>
-            <button id="confirmEndShiftBtn" style="background-color: var(--danger-color); width: 100%;">إنهاء الوردية وحفظ التقرير</button>
+            <button id="confirmEndShiftBtn" style="background-color: var(--danger-color); width: 100%;">إنهاء الوردية وبدء وردية جديدة</button>
             <button id="closeEndShiftBtn" class="cancel-btn" style="width: 100%; margin-top: 10px;">إلغاء والعودة للبيع</button>
         </div>
     </div>
@@ -152,87 +162,124 @@
             <h3>إضافة منتج جديد للمخزن</h3>
             <form id="addProductForm">
                 <div style="display: flex; gap: 10px; grid-column: 1 / -1;">
-                    <input type="text" id="prodBarcode" placeholder="الباركود" required style="margin-bottom: 0;">
-                    <button type="button" id="startProdCameraBtn" title="تشغيل الكاميرا" style="padding: 10px 15px; font-size: 1.2rem; background-color: var(--text-muted);">📷</button>
-                </div>
-                <div id="prodReader" style="display: none; width: 100%; max-width: 400px; margin: 0 auto 15px auto; border-radius: 8px; overflow: hidden; grid-column: 1 / -1;"></div>
+    <input type="text" id="prodBarcode" placeholder="الباركود" required style="margin-bottom: 0;">
+    <button type="button" id="startProdCameraBtn" title="تشغيل الكاميرا" style="padding: 10px 15px; font-size: 1.2rem; background-color: var(--text-muted);">📷</button>
+    <!-- إضافة Checkbox الإغلاق التلقائي للكاميرا -->
+    <label style="display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+        <input type="checkbox" id="autoCloseProdCameraCheckbox"> إغلاق بعد القراءة
+    </label>
+</div>
+
+<div id="prodReader" style="display: none; width: 100%; max-width: 400px; margin: 0 auto 15px auto; border-radius: 8px; overflow: hidden; grid-column: 1 / -1;"></div>
+
                 <input type="text" id="prodName" placeholder="اسم المنتج" required>
                 <input type="number" id="prodBuyPrice" placeholder="سعر الشراء" required>
                 <input type="number" id="prodSellPrice" placeholder="سعر البيع" required>
-                <input type="number" id="prodQty" placeholder="الكمية الافتتاحية" required>
+                <input type="number" id="prodQty" placeholder="الكمية الحالية" required>
                 <input type="number" id="prodMinAlert" placeholder="حد التنبيه (مثال: 5)" required>
-                <button type="submit">إضافة المنتج</button>
+                <button type="submit">إضافة / تحديث المنتج</button>
             </form>
 
+            <h3>المنتجات المتوفرة (النواقص تظهر باللون الأحمر)</h3>
             <table id="inventoryTable">
                 <thead>
-                    <tr><th>الباركود</th><th>المنتج</th><th>الكمية</th><th>سعر الشراء</th><th>سعر البيع</th><th>إجراء</th></tr>
+                    <tr>
+                        <th>الباركود</th>
+                        <th>المنتج</th>
+                        <th>الكمية</th>
+                        <th>سعر الشراء</th>
+                        <th>سعر البيع</th>
+                        <th>تعديل/حذف</th>
+                    </tr>
                 </thead>
                 <tbody id="inventoryBody">
-                    <tr><td colspan="6" style="text-align: center;">جاري التحميل...</td></tr>
+                    <tr>
+                        <td colspan="6" style="text-align: center;">جاري التحميل...</td>
+                    </tr>
                 </tbody>
             </table>
         </section>
 
-        <section id="restockTab" style="display: none;">
-            <h3>تزويد بضاعة (إذن إضافة مخزني)</h3>
-            <form id="restockForm" style="grid-template-columns: 1fr;">
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="restockBarcode" placeholder="ابحث بالباركود..." required style="margin-bottom: 0;">
-                    <button type="button" id="startRestockCameraBtn" style="padding: 10px 15px; font-size: 1.2rem; background-color: var(--text-muted);">📷</button>
-                </div>
-                <div id="restockReader" style="display: none; width: 100%; max-width: 400px; margin: 0 auto 15px auto; border-radius: 8px; overflow: hidden;"></div>
-
-                <div id="restockProductInfo" style="padding: 10px; background: var(--light-bg); border-radius: var(--radius); display: none; margin-bottom: 15px;"></div>
-                <input type="number" id="restockQty" placeholder="الكمية المضافة للمخزن" required disabled>
-                <input type="number" id="restockBuyPrice" placeholder="سعر الشراء الجديد (يترك فارغاً إذا لم يتغير)" disabled>
-                <button type="submit" id="restockSubmitBtn" disabled>تأكيد الإضافة وتحديث متوسط التكلفة</button>
-            </form>
-        </section>
-
-        <section id="quickItemsTab" style="display: none;">
-            <h3>إدارة القائمة السريعة</h3>
-            <form id="addQuickItemForm">
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="quickItemBarcode" placeholder="باركود المنتج" required style="margin-bottom: 0;">
-                    <button type="button" id="startQuickCameraBtn" style="padding: 10px 15px; font-size: 1.2rem; background-color: var(--text-muted);">📷</button>
-                </div>
-                <div id="quickReader" style="display: none; width: 100%; max-width: 400px; margin: 0 auto 15px auto; border-radius: 8px; overflow: hidden;"></div>
-                
-                <input type="file" id="quickItemImage" accept="image/*" required style="padding: 8px;">
-                <button type="submit" id="submitQuickItemBtn">إضافة للقائمة السريعة</button>
-            </form>
-            <div id="adminQuickItemsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 15px; margin-top: 20px;"></div>
-        </section>
-
         <section id="expensesTab" style="display: none;">
-            <h3>تسجيل مصروف إدارة عام</h3>
+            <h3>تسجيل مصروف يومي</h3>
             <form id="addExpenseForm">
-                <input type="text" id="expTitle" placeholder="بند المصروف..." required>
+                <input type="text" id="expTitle" placeholder="بند المصروف (مثال: كهرباء، أكياس...)" required>
                 <input type="number" id="expAmount" placeholder="المبلغ" required>
                 <button type="submit">تسجيل المصروف</button>
             </form>
         </section>
 
         <section id="cashiersTab" style="display: none;">
-            <h3>إضافة كاشير</h3>
+            <h3>إضافة كاشير جديد للنظام</h3>
             <form id="addCashierForm">
-                <input type="text" id="newCashierName" placeholder="اسم الدخول" required>
+                <input type="text" id="newCashierName" placeholder="اسم الدخول للكاشير" required>
                 <input type="text" id="newCashierPass" placeholder="كلمة المرور" required>
                 <button type="submit">إنشاء حساب كاشير</button>
             </form>
+            <h3>حسابات الكاشيرية المسجلة</h3>
             <table>
-                <thead><tr><th>اسم الكاشير</th><th>كلمة المرور</th><th>إجراء</th></tr></thead>
-                <tbody id="cashiersBody"></tbody>
+                <thead>
+                    <tr>
+                        <th>اسم الكاشير</th>
+                        <th>كلمة المرور</th>
+                        <th>إجراء</th>
+                    </tr>
+                </thead>
+                <tbody id="cashiersBody">
+                    <tr>
+                        <td colspan="3" style="text-align: center;">جاري التحميل...</td>
+                    </tr>
+                </tbody>
             </table>
         </section>
 
         <section id="statsTab" style="display: none;">
+            <h3>التقرير المالي للإدارة</h3>
             <div class="stats-cards">
-                <div class="card"><h4>إجمالي مبيعات الفواتير</h4><p id="totalSalesStat">0 جنيه</p></div>
-                <div class="card"><h4>إجمالي المصروفات</h4><p id="totalExpensesStat">0 جنيه</p></div>
-                <div class="card"><h4>صافي الربح</h4><p id="netProfitStat">0 جنيه</p></div>
+                <div class="card">
+                    <h4>إجمالي مبيعات الفواتير</h4>
+                    <p id="totalSalesStat">0 جنيه</p>
+                </div>
+                <div class="card">
+                    <h4>إجمالي المصروفات</h4>
+                    <p id="totalExpensesStat">0 جنيه</p>
+                </div>
+                <div class="card">
+                    <h4>صافي الربح</h4>
+                    <p id="netProfitStat">0 جنيه</p>
+                </div>
             </div>
+        </section>
+
+        <!-- إضافة تبويب وضع بضاعة (Restock) -->
+        <section id="restockTab" style="display: none;">
+            <h3>تزويد بضاعة (Restock)</h3>
+            <form id="restockForm">
+                <div style="display: flex; gap: 10px; grid-column: 1 / -1;">
+                    <input type="text" id="restockBarcode" placeholder="الباركود" required style="margin-bottom: 0;">
+                    <button type="button" id="startRestockCameraBtn" title="تشغيل الكاميرا" style="padding: 10px 15px; font-size: 1.2rem; background-color: var(--text-muted);">📷</button>
+                    <label style="display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+                        <input type="checkbox" id="autoCloseRestockCameraCheckbox"> إغلاق بعد القراءة
+                    </label>
+                </div>
+                <div id="restockReader" style="display: none; width: 100%; max-width: 400px; margin: 0 auto 15px auto; border-radius: 8px; overflow: hidden; grid-column: 1 / -1;"></div>
+                <input type="text" id="restockProdName" placeholder="اسم المنتج" readonly required>
+                <input type="number" id="restockAddQty" placeholder="الكمية المضافة" required>
+                <input type="number" id="restockNewBuyPrice" placeholder="سعر الشراء الجديد (اتركه فارغًا إن كان نفس السعر)">
+                <input type="number" id="restockNewSellPrice" placeholder="سعر البيع الجديد (اختياري)">
+                <button type="submit">تزويد الكمية</button>
+            </form>
+        </section>
+
+        <!-- إضافة تبويب القائمة السريعة للإدارة -->
+        <section id="quickItemsAdminTab" style="display: none;">
+            <h3>إدارة القائمة السريعة (أزرار البيع السريع)</h3>
+            <p>اختر حتى 15 منتجًا لعرضهم في شاشة البيع الرئيسية.</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="quickSearchInput" placeholder="ابحث عن منتج...">
+                <button id="addToQuickBtn">إضافة للقائمة السريعة</button>
+            </div>
+            <div id="quickItemsAdminList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;"></div>
         </section>
 
     </main>
