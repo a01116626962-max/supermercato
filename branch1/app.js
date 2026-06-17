@@ -1277,6 +1277,20 @@ function setupCamera(buttonId, readerDivId, inputId, autoCloseCheckboxId, onScan
     });
 }
 
+// ==========================================
+// ✅ تهيئة الصفحة عند التحميل (فحص الوردية)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    // لو مفيش وردية شغالة، نفتح نافذة استلام الوردية تلقائيًا
+    if (!currentShift.active) {
+        startShiftModal.style.display = 'flex';
+    } else {
+        // لو فيه وردية شغالة، نركز على الباركود ونسطب القائمة السريعة
+        document.getElementById('barcodeInput')?.focus();
+        loadQuickItems();
+    }
+});
+
 // تهيئة الكاميرات
 setupCamera('startCameraBtn', 'reader', 'barcodeInput', 'autoCloseCameraCheckbox', (text) => {
     barcodeInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
