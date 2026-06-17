@@ -33,7 +33,7 @@ let currentShift = {
     startCash: 0,
     sales: 0,
     drops: 0,
-    cashierExpenses: 0, // إضافة المصروفات النثرية
+    cashierExpenses: 0,
     startTime: null
 };
 
@@ -59,6 +59,55 @@ function normalizeText(text) {
 // إنشاء مفتاح بحث آمن للمنتج
 function createSearchKey(name) {
     return normalizeText(name);
+}
+
+// ➕ تحويل ملف صورة إلى Base64
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(file);
+    });
+}
+
+// ➕ ضغط الصورة قبل تحويلها لـ Base64 (لتقليل الحجم)
+function compressImage(file, maxWidth = 200, maxHeight = 200, quality = 0.5) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                // حساب الأبعاد الجديدة مع الحفاظ على النسبة
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 // ==========================================
@@ -410,7 +459,7 @@ document.getElementById('confirmEndShiftBtn').addEventListener('click', async ()
 });
 
 // ==========================================
-// 6. إدارة المخزن (مع searchKey وتفعيل أزرار التعديل والحذف)
+// 6. إدارة المخزن (مع Base64 للصور)
 // ==========================================
 
 document.getElementById('addProductForm').addEventListener('submit', async (e) => {
@@ -419,6 +468,18 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
     btn.innerText = "جاري الإضافة...";
     btn.disabled = true;
 
+    // ➕ معالجة الصورة إذا وُجدت
+    let imageBase64 = "";
+    const imageFile = document.getElementById('prodImage')?.files[0];
+    if (imageFile) {
+        try {
+            btn.innerText = "جاري ضغط الصورة...";
+            imageBase64 = await compressImage(imageFile, 200, 200, 0.5);
+        } catch (error) {
+            console.error("خطأ في معالجة الصورة:", error);
+        }
+    }
+
     const newProduct = {
         barcode: document.getElementById('prodBarcode').value,
         name: document.getElementById('prodName').value,
@@ -426,6 +487,7 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
         sellPrice: parseFloat(document.getElementById('prodSellPrice').value),
         quantity: parseInt(document.getElementById('prodQty').value),
         minAlert: parseInt(document.getElementById('prodMinAlert').value),
+        image: imageBase64, // ➕ حفظ الصورة Base64
         searchKey: [
             normalizeText(document.getElementById('prodName').value),
             normalizeText(document.getElementById('prodBarcode').value)
@@ -438,7 +500,7 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
         document.getElementById('addProductForm').reset();
         loadInventory();
     } catch (error) {
-        alert("حدث خطأ أثناء الإضافة.");
+        alert("حدث خطأ أثناء الإضافة: " + error.message);
     } finally {
         btn.innerText = "إضافة / تحديث المنتج";
         btn.disabled = false;
@@ -464,7 +526,7 @@ async function loadInventory() {
             tbody.innerHTML += `
                 <tr class="${isLowStock}">
                     <td>${prod.barcode}</td>
-                    <td>${prod.name}</td>
+                    <td>${prod.image ? `<img src="${prod.image}" style="width:30px; height:30px; vertical-align:middle; margin-left:5px;">` : ''}${prod.name}</td>
                     <td>${prod.quantity}</td>
                     <td>${prod.buyPrice}</td>
                     <td>${prod.sellPrice}</td>
@@ -489,11 +551,35 @@ window.editProduct = async function(productId) {
     const newSellPrice = prompt("سعر البيع الجديد:", product.sellPrice);
     if (!newSellPrice) return;
     
+    // ➕ اختيار صورة جديدة (اختياري)
+    const changeImage = confirm("هل تريد تغيير الصورة أيضاً؟");
+    let imageBase64 = product.image || "";
+    
+    if (changeImage) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        
+        imageBase64 = await new Promise((resolve) => {
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const base64 = await compressImage(file, 200, 200, 0.5);
+                    resolve(base64);
+                } else {
+                    resolve(product.image || "");
+                }
+            };
+            input.click();
+        });
+    }
+    
     try {
         const productRef = doc(db, "products", productId);
         await updateDoc(productRef, {
             name: newName,
             sellPrice: parseFloat(newSellPrice),
+            image: imageBase64,
             searchKey: [normalizeText(newName), normalizeText(product.barcode || '')]
         });
         alert("تم التعديل بنجاح");
@@ -506,7 +592,6 @@ window.editProduct = async function(productId) {
 window.deleteProduct = async function(productId) {
     if (confirm("هل أنت متأكد من حذف هذا المنتج؟")) {
         try {
-            // حذف منطقي
             await updateDoc(doc(db, "products", productId), { quantity: -99999 });
             alert("تم الحذف بنجاح");
             loadInventory();
@@ -578,7 +663,7 @@ document.getElementById('restockForm').addEventListener('submit', async (e) => {
             const newTotalCost = newBuyPrice * addQty;
             const totalQuantity = product.quantity + addQty;
             const newAvgBuyPrice = (oldTotalCost + newTotalCost) / totalQuantity;
-            updatedData.buyPrice = Math.round(newAvgBuyPrice * 100) / 100; // تقريب لرقمين عشريين
+            updatedData.buyPrice = Math.round(newAvgBuyPrice * 100) / 100;
         } else if (newBuyPrice > 0) {
             updatedData.buyPrice = newBuyPrice;
         }
@@ -626,7 +711,7 @@ async function loadCashiers() {
         tbody.innerHTML = '';
         snap.forEach(doc => {
             const data = doc.data();
-            if (data.active === false) return; // تجاهل المحذوفين
+            if (data.active === false) return;
             tbody.innerHTML += `
                 <tr>
                     <td>${data.name}</td>
@@ -658,11 +743,10 @@ window.deleteCashier = async function(cashierId) {
 const barcodeInput = document.getElementById('barcodeInput');
 barcodeInput.addEventListener('keypress', async (e) => {
     if (e.key === 'Enter') {
-        e.preventDefault(); // منع تقديم أي نموذج
+        e.preventDefault();
         const code = barcodeInput.value.trim();
         if(code === "") return;
 
-        // Debounce: تجاهل نفس الباركود خلال 4 ثوانٍ
         if (barcodeDebounceTimers[code]) {
             return;
         }
@@ -671,7 +755,6 @@ barcodeInput.addEventListener('keypress', async (e) => {
             delete barcodeDebounceTimers[code];
         }, 4000);
 
-        // البحث محلياً أولاً
         const normalizedSearch = normalizeText(code);
         const localProduct = productsList.find(p => 
             p.barcode === code || 
@@ -684,11 +767,9 @@ barcodeInput.addEventListener('keypress', async (e) => {
             return;
         }
 
-        // إذا لم يوجد محلياً، ابحث في Firebase
         try {
             let found = false;
             
-            // بحث بالباركود
             const qBarcode = query(collection(db, "products"), where("barcode", "==", code), limit(1));
             const barcodeSnap = await getDocs(qBarcode);
             
@@ -703,7 +784,6 @@ barcodeInput.addEventListener('keypress', async (e) => {
                 }
             }
             
-            // بحث بالاسم إذا لم يجد بالباركود
             if (!found) {
                 const qName = query(collection(db, "products"), where("searchKey", "array-contains", normalizedSearch), limit(1));
                 const nameSnap = await getDocs(qName);
@@ -820,7 +900,6 @@ window.removeFromCart = function(index) {
     renderCart();
 };
 
-// دالة تحديث الإحصائيات الفورية
 async function updateStatsInRealTime(salesAmount, costAmount) {
     const today = new Date().toISOString().split('T')[0];
     const month = today.substring(0, 7);
@@ -915,7 +994,7 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
 });
 
 // ==========================================
-// 11. القائمة السريعة (Quick Items)
+// 11. القائمة السريعة (Quick Items) مع Base64
 // ==========================================
 
 async function loadQuickItems() {
@@ -934,7 +1013,7 @@ async function loadQuickItems() {
             if (item.active === false) return;
             
             const btn = document.createElement('button');
-            btn.innerHTML = `${item.image ? `<img src="${item.image}" alt="${item.name}">` : ''} ${item.name}`;
+            btn.innerHTML = `${item.image ? `<img src="${item.image}" alt="${item.name}" style="max-width:40px; max-height:40px; display:block; margin:0 auto 5px auto;">` : ''} <span>${item.name}</span>`;
             btn.onclick = () => {
                 const product = productsList.find(p => p.id === item.productId);
                 if (product) addToCart({...product});
@@ -961,14 +1040,38 @@ async function loadQuickItemsAdmin() {
             list.innerHTML += `
                 <div style="border:1px solid var(--border-color); padding:10px; border-radius:8px; text-align:center;">
                     <p><strong>${item.name}</strong></p>
-                    ${item.image ? `<img src="${item.image}" style="max-width:80px; max-height:80px; display:block; margin:5px auto;">` : ''}
-                    <button onclick="window.removeQuickItem('${doc.id}')" style="background:var(--danger-color); margin-top:5px;">إزالة</button>
+                    ${item.image ? `<img src="${item.image}" style="max-width:80px; max-height:80px; display:block; margin:5px auto;">` : '<p style="color:#999;">لا توجد صورة</p>'}
+                    <button onclick="window.uploadCustomImageForQuickItem('${doc.id}')" style="background:var(--primary-color); margin:5px;">📷 تغيير الصورة</button>
+                    <button onclick="window.removeQuickItem('${doc.id}')" style="background:var(--danger-color); margin:5px;">حذف</button>
                 </div>`;
         });
     } catch (error) {
         list.innerHTML = 'خطأ في التحميل';
     }
 }
+
+// ➕ دالة لرفع صورة مخصصة للقائمة السريعة (Base64)
+window.uploadCustomImageForQuickItem = async function(docId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        try {
+            const base64 = await compressImage(file, 150, 150, 0.5);
+            await updateDoc(doc(db, "quickItems", docId), { image: base64 });
+            loadQuickItemsAdmin();
+            alert("تم تحديث الصورة بنجاح");
+        } catch (error) {
+            alert("خطأ في رفع الصورة");
+        }
+    };
+    
+    input.click();
+};
 
 document.getElementById('addToQuickBtn').addEventListener('click', async () => {
     const searchInput = document.getElementById('quickSearchInput').value.trim();
@@ -991,7 +1094,7 @@ document.getElementById('addToQuickBtn').addEventListener('click', async () => {
         await addDoc(collection(db, "quickItems"), {
             productId: product.id,
             name: product.name,
-            image: product.image || "",
+            image: product.image || "", // ➕ استخدام صورة المنتج Base64
             active: true
         });
         document.getElementById('quickSearchInput').value = '';
@@ -1127,7 +1230,6 @@ function setupCamera(buttonId, readerDivId, inputId, autoCloseCheckboxId, onScan
     let html5QrCode;
     let isCameraOpen = false;
 
-    // استعادة حالة Checkbox من localStorage
     if (autoCloseCheckbox) {
         const saved = localStorage.getItem(`${autoCloseCheckboxId}_checked`);
         if (saved === 'true') autoCloseCheckbox.checked = true;
@@ -1153,7 +1255,6 @@ function setupCamera(buttonId, readerDivId, inputId, autoCloseCheckboxId, onScan
                 (decodedText) => {
                     input.value = decodedText;
                     
-                    // الإغلاق التلقائي إذا كان مفعلاً
                     if (autoCloseCheckbox && autoCloseCheckbox.checked) {
                         html5QrCode.stop().then(() => {
                             readerDiv.style.display = 'none';
@@ -1164,7 +1265,7 @@ function setupCamera(buttonId, readerDivId, inputId, autoCloseCheckboxId, onScan
                     
                     if (onScanCallback) onScanCallback(decodedText);
                 },
-                () => {} // تجاهل أخطاء المسح
+                () => {}
             ).then(() => {
                 isCameraOpen = true;
                 btn.innerHTML = '❌ إغلاق الكاميرا';
